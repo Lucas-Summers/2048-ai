@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>2048 AI</h1>
+            <h1>2048 AI!</h1>
             <div class="scores-container">
                 <div class="score-container">
                     SCORE
@@ -22,10 +22,6 @@
             </div>
         </header>
 
-        <div class="game-intro">
-            <p>Watch the AI join the numbers and get to the highest tile it can!</p>
-        </div>
-
         <div class="game-wrapper">
             <div class="game-container">
                 <div class="grid-container" id="grid-container">
@@ -35,40 +31,34 @@
 
             <div class="controls-container">
                 <div class="control-buttons">
-                    <button id="resume-button" class="control-button">Resume</button>
+                    <button id="resume-button" class="control-button">Start AI</button>
                     <button id="new-game-button" class="control-button">New Game</button>
                 </div>
                 
                 <div class="ai-controls">
-                    <h3>AI Mode:</h3>
-                    <div class="radio-group">
+                    <h3>AI Agent:</h3>
+                    <div class="radio-group" id="ai-agents">
+                        {% for agent in agents %}
                         <label>
-                            <input type="radio" name="ai-mode" value="smart" checked>
-                            Smart
+                            <input type="radio" name="ai-mode" value="{{ agent }}" {% if agent == 'random' %}checked{% endif %}>
+                            {{ agent|capitalize }}
                         </label>
-                        <label>
-                            <input type="radio" name="ai-mode" value="algorithm">
-                            Algorithm-based
-                        </label>
-                        <label>
-                            <input type="radio" name="ai-mode" value="priority">
-                            Priority-based
-                        </label>
-                        <label>
-                            <input type="radio" name="ai-mode" value="random">
-                            Random
-                        </label>
+                        {% endfor %}
                     </div>
                     
                     <h3>Speed:</h3>
                     <div class="radio-group">
                         <label>
                             <input type="radio" name="speed" value="full">
-                            Full
+                            Very Fast
                         </label>
                         <label>
                             <input type="radio" name="speed" value="fast" checked>
                             Fast
+                        </label>
+                        <label>
+                            <input type="radio" name="speed" value="medium">
+                            Medium
                         </label>
                         <label>
                             <input type="radio" name="speed" value="slow">
@@ -76,16 +66,11 @@
                         </label>
                     </div>
                     
-                    <h3>Tile generator:</h3>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" name="tile-generator" value="random" checked>
-                            Random
-                        </label>
-                        <label>
-                            <input type="radio" name="tile-generator" value="evil">
-                            Evil
-                        </label>
+                    <div id="agent-stats-container">
+                        <h3>Agent Statistics:</h3>
+                        <div id="agent-stats" class="agent-stats">
+                            <p>No stats available yet</p>
+                        </div>
                     </div>
                     
                     <h3>Highest numbers:</h3>
@@ -95,9 +80,17 @@
         </div>
 
         <footer>
-            <p>Created by Your Name. Based on <a href="https://github.com/gabrielecirulli/2048" target="_blank">2048 by Gabriele Cirulli</a>
-            and conceptually similar to <a href="http://asherv.com/threes/" target="_blank">Threes by Asher Vollmer</a>.</p>
+                <p>Created by <em>The Dropouts.</em> Based on <a href="https://github.com/gabrielecirulli/2048" target="_blank">2048 by Gabriele Cirulli</a>.</p>
         </footer>
+    </div>
+
+    <!-- Game over modal -->
+    <div id="game-over-modal" class="modal">
+        <div class="modal-content">
+            <h2>Game Over!</h2>
+            <div id="game-over-stats"></div>
+            <button id="modal-new-game" class="control-button">New Game</button>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

@@ -28,21 +28,25 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     width: 100%;
     max-width: 870px;
 }
 
 h1 {
-    font-size: 80px;
+    font-size: 120px;
     font-weight: bold;
     margin: 0;
     color: #776e65;
+    flex: 1;
+    max-width: 500px;
+    text-align: center;
 }
 
 .scores-container {
     display: flex;
     gap: 10px;
+    width: 350px;
 }
 
 .score-container, .best-container {
@@ -55,6 +59,7 @@ h1 {
     border-radius: 3px;
     color: white;
     text-align: center;
+    width: 100%;
     min-width: 100px;
 }
 
@@ -112,6 +117,7 @@ h1 {
     padding: 20px;
     border-radius: 6px;
     width: 350px;
+    height: 500px;
     flex-shrink: 0;
 }
 
@@ -151,7 +157,7 @@ h1 {
 
 .radio-group {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     margin-bottom: 20px;
 }
 
@@ -160,6 +166,7 @@ h1 {
     cursor: pointer;
     font-size: 16px;
     color: #776e65;
+    margin-right: 10px;
 }
 
 .highest-tiles {
@@ -170,12 +177,18 @@ h1 {
 }
 
 /* Tile styling */
+:root {
+  --movement-duration: 200ms;
+  --merge-delay: 50ms;
+  --new-tile-delay: 50ms;
+}
+
 .tile {
     width: 106.25px;
     height: 106.25px;
     border-radius: 3px;
     position: absolute;
-    transition: left 0.15s ease, top 0.15s ease;
+    transition: left var(--movement-duration) ease, top var(--movement-duration) ease;
     
     /* Center text both horizontally and vertically */
     display: flex;
@@ -228,7 +241,7 @@ h1 {
 
 /* Animation for new tiles */
 .tile-new {
-    animation: appear 0.2s ease-in-out;
+    animation: appear var(--new-tile-delay) ease-in-out;
 }
 
 @keyframes appear {
@@ -244,7 +257,7 @@ h1 {
 
 /* Animation for merged tiles */
 .tile-merged {
-    animation: pop 0.2s ease-in-out;
+    animation: pop var(--merge-delay) ease-in-out;
     z-index: 20;
 }
 
@@ -266,4 +279,66 @@ footer {
     font-size: 14px;
     width: 100%;
     max-width: 870px;
+}
+
+/* Agent stats styling */
+.agent-stats {
+    background: rgba(238, 228, 218, 0.35);
+    border-radius: 3px;
+    padding: 10px;
+    margin-top: 5px;
+    font-size: 14px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.agent-stats p {
+    margin: 5px 0;
+}
+
+.agent-stats .stat-label {
+    font-weight: bold;
+}
+
+/* Modal styling */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: #faf8ef;
+    padding: 20px;
+    border-radius: 6px;
+    width: 80%;
+    max-width: 500px;
+    text-align: center;
+}
+
+.modal h2 {
+    font-size: 36px;
+    margin-bottom: 20px;
+    color: #776e65;
+}
+
+#game-over-stats {
+    margin-bottom: 20px;
+    text-align: left;
+    padding: 10px;
+    background: rgba(238, 228, 218, 0.35);
+    border-radius: 3px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#modal-new-game {
+    margin-top: 20px;
 }

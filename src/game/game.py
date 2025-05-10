@@ -1,113 +1,100 @@
-# game.py
 import numpy as np
 from .board import Board
 
 class Game2048:
+    """
+    Represents a game of 2048, managing the board state, score, and game logic.
+    """
+    
     def __init__(self):
+        """Initialize a new 2048 game."""
         self.board = Board()
         self.score = 0
         self.moves = 0
         self.game_over = False
-        self.movement_history = []  # To track tile movements for animation
-        
+    
+    def reset(self):
+        """Reset the game to initial state."""
+        self.board = Board()
+        self.score = 0
+        self.moves = 0
+        self.game_over = False
+    
     def step(self, direction):
-        """Make a move and update the game state, return movement info for animations"""
-        # Store previous board state
-        prev_grid = self.board.grid.copy()
+        """
+        Make a move in the specified direction.
         
-        # Make the move
-        moved = self.board.move(direction)
+        Args:
+            direction: Direction to move (0:up, 1:right, 2:down, 3:left)
+            
+        Returns:
+            dict: Information about the move result
+        """
+        # Make the move and get detailed information
+        move_info = self.board.move(direction, return_info=True)
         
-        if not moved:
-            return {
-                'moved': False,
-                'movements': [],
-                'merges': [],
-                'new_tile': None
-            }
-        
-        # Calculate what tiles moved where
-        movements = []
-        merges = []
-        
-        # Track which new positions have been filled
-        filled_positions = set()
-        
-        # Check the board for tile movements and merges
-        for row in range(4):
-            for col in range(4):
-                # If the current cell had a value before
-                if prev_grid[row][col] != 0:
-                    # Find where this tile went
-                    found = False
-                    for new_row in range(4):
-                        for new_col in range(4):
-                            # If this is a valid movement location
-                            if (new_row, new_col) not in filled_positions:
-                                if direction == 0:  # Up
-                                    valid = new_row <= row and new_col == col
-                                elif direction == 1:  # Right
-                                    valid = new_row == row and new_col >= col
-                                elif direction == 2:  # Down
-                                    valid = new_row >= row and new_col == col
-                                elif direction == 3:  # Left
-                                    valid = new_row == row and new_col <= col
-                                else:
-                                    valid = False
-                                
-                                # If it's a valid destination and has the same value or is twice the value (merge)
-                                if valid and self.board.grid[new_row][new_col] != 0:
-                                    if self.board.grid[new_row][new_col] == prev_grid[row][col]:
-                                        # This tile moved to this position
-                                        movements.append({
-                                            'from': (row, col),
-                                            'to': (new_row, new_col),
-                                            'value': prev_grid[row][col]
-                                        })
-                                        filled_positions.add((new_row, new_col))
-                                        found = True
-                                        break
-                                    elif self.board.grid[new_row][new_col] == prev_grid[row][col] * 2:
-                                        # This tile merged at this position
-                                        movements.append({
-                                            'from': (row, col),
-                                            'to': (new_row, new_col),
-                                            'value': prev_grid[row][col]
-                                        })
-                                        merges.append({
-                                            'position': (new_row, new_col),
-                                            'value': self.board.grid[new_row][new_col]
-                                        })
-                                        filled_positions.add((new_row, new_col))
-                                        found = True
-                                        break
-                            
-                        if found:
-                            break
-        
-        # Find new tile
-        new_tile = None
-        for row in range(4):
-            for col in range(4):
-                if self.board.grid[row][col] != 0 and prev_grid[row][col] == 0:
-                    new_tile = {
-                        'position': (row, col),
-                        'value': self.board.grid[row][col]
-                    }
+        if not move_info['moved']:
+            return move_info
         
         # Update score and moves
+        self.score += move_info['score']
         self.moves += 1
-        self.score = np.sum(self.board.grid)  # Simple scoring
         
         # Check for game over
         self.game_over = self.board.is_game_over()
         
-        return {
-            'moved': True,
-            'movements': movements,
-            'merges': merges,
-            'new_tile': new_tile
-        }
+        # Add extra game info to the result
+        move_info.update({
+            'total_score': self.score,
+            'moves': self.moves,
+            'game_over': self.game_over
+        })
         
+        return move_info
+    
     def is_game_over(self):
+        """Check if the game is over (no valid moves)."""
         return self.game_over
+    
+    def get_available_moves(self):
+        """Get a list of valid moves in the current state."""
+        return self.board.get_available_moves()
+    
+    def is_valid_move(self, direction):
+        """Check if a move is valid without making it."""
+        return self.board.is_valid_move(direction)
+    
+    def copy(self):
+        """Create a deep copy of the game state."""
+        game_copy = Game2048()
+        game_copy.board = self.board.copy()
+        game_copy.score = self.score
+        game_copy.moves = self.moves
+        game_copy.game_over = self.game_over
+        return game_copy
+    
+    def get_state(self):
+        """
+        Get a serializable representation of the game state.
+        
+        Returns:
+            dict: Game state as a dictionary
+        """
+        return {
+            'board': self.board.grid.tolist(),
+            'score': self.score,
+            'moves': self.moves,
+            'game_over': self.game_over
+        }
+    
+    def set_state(self, state):
+        """
+        Restore the game from a serialized state.
+        
+        Args:
+            state: Dictionary containing game state
+        """
+        self.board.grid = np.array(state['board'])
+        self.score = state['score']
+        self.moves = state['moves']
+        self.game_over = state['game_over']
