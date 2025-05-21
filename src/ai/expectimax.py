@@ -67,22 +67,19 @@ class ExpectimaxAgent(Agent):
 
     
     def _evaluate_board(self, board):
-        """ Evaluation of tiles. Empty tiles award 10 points each.
-        Highest tile awards log(tile + 1) * 2 """
-        empty_tiles = np.count_nonzero(board == 0)
-
 
         def num_empty_tiles(board):
             """More empty tiles = more flexibility and less risk.
             Reward boards with more 0s."""
 
-            # MULTIPLIER: 10X
-            return np.count_nonzero(board == 0) * 10
+            return np.count_nonzero(board == 0)
 
         def monotonicity(board):
             """Measures whether values increase or decrease consistently across rows
             or columns. Boards with decreasing rows/cols (e.g. [128, 64, 32, 16]) are
-             easier to merge and build up."""
+             easier to merge and build up. Calculates how much the values are
+             increasing (inc) or decreasing (dec). """
+            """Higher scores (less negative) = more monotonic board = better."""
             def score_line(line):
                 inc = 0
                 dec = 0
@@ -92,7 +89,9 @@ class ExpectimaxAgent(Agent):
                     else:
                         dec += line[i] - line[i + 1]
                 return -min(inc, dec)
-
+            """If a row is strongly increasing, the decrease cost is low -> good.
+            If a row is strongly decreasing, the increase cost is low -> also good.
+            If a row/column is mixed or oscillating, both inc and dec will be high -> bad."""
             score = 0
             for row in board:
                 score += score_line(row)

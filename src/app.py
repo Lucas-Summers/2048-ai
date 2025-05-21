@@ -3,6 +3,7 @@ from src.game.board import Board
 from src.game.game import Game2048
 from src.ai.base import Agent
 from src.ai.random import RandomAgent
+from src.ai.expectimax import ExpectimaxAgent
 import os
 import importlib
 import numpy as np
@@ -18,7 +19,7 @@ games = {}
 agents = {
     'random': RandomAgent(),
     # Add other agents as they're implemented
-    # 'expectimax': ExpectimaxAgent(),
+    'expectimax': ExpectimaxAgent(),
     # 'mcts': MCTSAgent(),
     # 'heuristic': HeuristicAgent(),
     # 'rl': RLAgent(),
