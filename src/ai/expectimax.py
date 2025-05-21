@@ -83,12 +83,42 @@ class ExpectimaxAgent(Agent):
             """Measures whether values increase or decrease consistently across rows
             or columns. Boards with decreasing rows/cols (e.g. [128, 64, 32, 16]) are
              easier to merge and build up."""
-            pass
+            def score_line(line):
+                inc = 0
+                dec = 0
+                for i in range(3):
+                    if line[i] <= line[i+1]:
+                        inc += line[i+1] - line[i]
+                    else:
+                        dec += line[i] - line[i + 1]
+                return -min(inc, dec)
+
+            score = 0
+            for row in board:
+                score += score_line(row)
+            for col in board.T:
+                score += score_line(col)
+            return score
+
         def smoothness(board):
             """Penalizes abrupt changes between adjacent tiles. Ideal boards have
             neighboring tiles that are similar in value (e.g. [16, 16] or [128, 64])."""
+            penalty = 0
+            for i in range(4):
+                for j in range(4):
+                    if board[i][j] == 0:
+                        continue
+                    val = np.log2(board[i][j]) # Use log to dilute penalty
+                    for dx, dy in [(0,1),(1,0)]:
+                        ni, nj = i + dx, j + dy
+                        if ni < 4 and nj < 4 and board[ni][nj] != 0:
+                            # If in range of board and not empty cell
+                            neighbor_val = np.log2(board[ni][nj])
+                            # Differnece between values
+                            penalty -= abs(val - neighbor_val)
 
-            pass
+            return penalty
+
         def corner_max_tile(board):
             """Reward boards where the highest tile is in a corner (e.g. top-left).
             Strategic stacking tends to place the max tile there."""
