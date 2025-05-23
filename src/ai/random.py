@@ -12,6 +12,10 @@ class RandomAgent(Agent):
         self.seed = seed
         if seed is not None:
             random.seed(seed)
+        
+        # Stats tracking
+        self.moves_made = 0
+        self.valid_moves_history = []
     
     def get_move(self, game):
         """
@@ -27,6 +31,10 @@ class RandomAgent(Agent):
         # Get valid moves from the game's board
         valid_moves = game.board.get_available_moves()
         
+        # Track stats
+        self.valid_moves_history.append(len(valid_moves))
+        self.moves_made += 1
+        
         # If no valid moves, return -1
         if not valid_moves:
             return -1
@@ -35,6 +43,19 @@ class RandomAgent(Agent):
         selected_move = random.choice(valid_moves)
         
         return selected_move
+    
+    def get_stats(self):
+        """Return agent statistics."""
+        # Calculate average number of valid moves available
+        avg_valid_moves = 0
+        if self.valid_moves_history:
+            avg_valid_moves = sum(self.valid_moves_history) / len(self.valid_moves_history)
+        
+        return {
+            'moves_made': self.moves_made,
+            'avg_valid_moves': round(avg_valid_moves, 2),
+            'strategy': 'Pure random selection'
+        }
     
     def get_config(self):
         """Return agent configuration."""

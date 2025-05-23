@@ -1,11 +1,9 @@
 from flask import Flask, render_template, jsonify, request
-from src.game.board import Board
 from src.game.game import Game2048
-from src.ai.base import Agent
 from src.ai.random import RandomAgent
+from src.ai.mcts import MctsAgent
 import os
 import importlib
-import numpy as np
 
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'templates'))
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
@@ -17,15 +15,14 @@ games = {}
 # Available AI agents
 agents = {
     'random': RandomAgent(),
+    'mcts': MctsAgent(thinking_time=0.2, max_sim_depth=20, rollout_type="greedy", max_branching_factor=2),
     # Add other agents as they're implemented
     # 'expectimax': ExpectimaxAgent(),
-    # 'mcts': MCTSAgent(),
     # 'heuristic': HeuristicAgent(),
     # 'rl': RLAgent(),
 }
 
 def load_agent(agent_type):
-    """Dynamically load an agent by type."""
     if agent_type in agents:
         return agents[agent_type]
         
@@ -33,36 +30,26 @@ def load_agent(agent_type):
         # Try to dynamically import the requested agent
         module_name = f"src.ai.{agent_type}_agent"
         class_name = f"{agent_type.capitalize()}Agent"
-        
-        # Import the module
         module = importlib.import_module(module_name)
-        
-        # Get the agent class and create an instance
         agent_class = getattr(module, class_name)
         agent = agent_class()
-        
-        # Cache the agent for future use
         agents[agent_type] = agent
         
         return agent
     except (ImportError, AttributeError) as e:
-        # If agent can't be loaded, fall back to random
         print(f"Agent '{agent_type}' could not be loaded: {e}")
         return agents['random']
 
 @app.route('/')
 def index():
-    """Render the main game page"""
     agent_types = list(agents.keys())
     return render_template('index.html', agents=agent_types)
 
 @app.route('/api/new_game', methods=['POST'])
 def new_game():
-    """Start a new game"""
     game_id = request.json.get('game_id', 'default')
     games[game_id] = Game2048()
     
-    # Get initial board state
     game = games[game_id]
     
     return jsonify(
@@ -74,7 +61,6 @@ def new_game():
 
 @app.route('/api/make_move', methods=['POST'])
 def make_move():
-    """Make a player move"""
     game_id = request.json.get('game_id', 'default')
     direction = int(request.json.get('direction'))
     
@@ -82,17 +68,13 @@ def make_move():
     if not game:
         return jsonify(error="Game not found"), 404
     
-    # Try to make the move - the result now has all the movement info directly
     move_result = game.step(direction)
-    
-    # Convert any NumPy types to native Python types for JSON serialization
     result = sanitize_response(move_result, game)
     
     return jsonify(result)
 
 @app.route('/api/ai_move', methods=['POST'])
 def ai_move():
-    """Get and make an AI move"""
     game_id = request.json.get('game_id', 'default')
     ai_type = request.json.get('ai_type', 'random')  # Default to random
     
@@ -100,13 +82,9 @@ def ai_move():
     if not game:
         return jsonify(error="Game not found"), 404
     
-    # Load the requested agent
     agent = load_agent(ai_type)
-    
-    # Get AI's move
     direction = agent.get_move(game)
     
-    # If no valid move is available
     if direction == -1:
         return jsonify(
             moved=False,
@@ -118,13 +96,8 @@ def ai_move():
             agent_stats=agent.get_stats() if hasattr(agent, 'get_stats') else {}
         )
     
-    # Make the move
     move_result = game.step(direction)
-    
-    # Convert any NumPy types to native Python types for JSON serialization
     result = sanitize_response(move_result, game)
-    
-    # Add AI-specific information
     result.update({
         'direction': int(direction),
         'agent_type': ai_type,
@@ -135,15 +108,12 @@ def ai_move():
 
 @app.route('/api/get_agent_types', methods=['GET'])
 def get_agent_types():
-    """Get a list of available AI agent types"""
     return jsonify(list(agents.keys()))
 
 @app.route('/api/reset_game', methods=['POST'])
 def reset_game():
-    """Reset an existing game or create a new one"""
     game_id = request.json.get('game_id', 'default')
     
-    # If game exists, reset it, otherwise create a new one
     if game_id in games:
         games[game_id].reset()
     else:
@@ -161,15 +131,7 @@ def reset_game():
 def sanitize_response(move_result, game):
     """
     Convert any NumPy types to native Python types for JSON serialization.
-    
-    Args:
-        move_result: Result from game.step()
-        game: The Game2048 instance
-        
-    Returns:
-        dict: JSON-serializable response
     """
-    # Convert basic information
     result = {
         'board': game.board.grid.tolist(),
         'score': int(game.score),
@@ -214,7 +176,7 @@ def sanitize_response(move_result, game):
     else:
         result['new_tile'] = None
     
-    # Add any additional information
+    # additional info
     if 'score_gained' in move_result:
         result['score_gained'] = int(move_result['score_gained'])
     if 'total_score' in move_result:

@@ -17,6 +17,17 @@ class Agent:
         """
         raise NotImplementedError("Subclasses must implement get_move()")
     
+    def get_stats(self):
+        """
+        Returns the agent's runtime statistics.
+        This method should be implemented by all agent subclasses
+        to provide meaningful statistics for display in the UI.
+        
+        Returns:
+            dict: A dictionary of statistics specific to this agent
+        """
+        return {'name': self.name}
+    
     def get_config(self):
         """
         Returns the agent's configuration parameters.
