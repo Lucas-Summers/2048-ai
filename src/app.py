@@ -178,7 +178,7 @@ def sanitize_response(move_result, game):
         'game_over': game.is_game_over(),
         'highest_tile': int(game.board.get_max_tile())
     }
-    
+
     # Convert movements
     movements = []
     for move in move_result.get('movements', []):
@@ -224,4 +224,4 @@ def sanitize_response(move_result, game):
     return result
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True)
