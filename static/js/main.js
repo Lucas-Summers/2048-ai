@@ -824,12 +824,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         let statsHtml = '';
-        for (const [key, value] of Object.entries(stats)) {
+        
+        // Sort the stats for better readability - put standard stats first, then alphabetical
+        const priorityStats = ["thinking_time", "iterations", "nodes_explored", "max_depth"];
+        const sortedKeys = Object.keys(stats).sort((a, b) => {
+            const aIndex = priorityStats.indexOf(a);
+            const bIndex = priorityStats.indexOf(b);
+            
+            // If both keys are in priorityStats, sort by their order in that array
+            if (aIndex !== -1 && bIndex !== -1) {
+                return aIndex - bIndex;
+            }
+            
+            // If only one key is in priorityStats, prioritize it
+            if (aIndex !== -1) return -1;
+            if (bIndex !== -1) return 1;
+            
+            // Otherwise sort alphabetically
+            return a.localeCompare(b);
+        });
+        
+        // Create HTML for each stat
+        for (const key of sortedKeys) {
+            const value = stats[key];
+            
             // Format the key by replacing underscores with spaces and capitalizing
             const formattedKey = key.replace(/_/g, ' ')
                 .replace(/\b\w/g, l => l.toUpperCase());
-                
-            statsHtml += `<p><span class="stat-label">${formattedKey}:</span> ${value}</p>`;
+            
+            // Format value based on type
+            let formattedValue = value;
+            if (typeof value === 'number' && !Number.isInteger(value)) {
+                // Format decimal numbers to 2 decimal places
+                formattedValue = value.toFixed(2);
+            }
+            
+            // Add to stats HTML
+            statsHtml += `<p><span class="stat-label">${formattedKey}:</span> ${formattedValue}</p>`;
         }
         
         agentStats.innerHTML = statsHtml;

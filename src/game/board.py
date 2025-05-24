@@ -320,3 +320,11 @@ class Board:
                     result += f"{value}\t"
             result += "\n"
         return result
+
+    def __hash__(self):
+        return hash(tuple(map(tuple, self.grid)))
+
+    def __eq__(self, other):
+        if not isinstance(other, Board):
+            return False
+        return np.array_equal(self.grid, other.grid)

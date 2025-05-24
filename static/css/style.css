@@ -117,7 +117,7 @@ h1 {
     padding: 20px;
     border-radius: 6px;
     width: 350px;
-    height: 500px;
+    height: 550px;
     flex-shrink: 0;
 }
 
@@ -287,17 +287,34 @@ footer {
     border-radius: 3px;
     padding: 10px;
     margin-top: 5px;
+    margin-bottom: 15px;
     font-size: 14px;
-    max-height: 150px;
+    max-height: 175px;
     overflow-y: auto;
+    overflow-x: hidden;
+    transition: all 0.3s ease;
+}
+
+.agent-stats:hover {
+    background: rgba(238, 228, 218, 0.5);
 }
 
 .agent-stats p {
     margin: 5px 0;
+    line-height: 1.4;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dotted rgba(119, 110, 101, 0.2);
+    padding-bottom: 3px;
+}
+
+.agent-stats p:last-child {
+    border-bottom: none;
 }
 
 .agent-stats .stat-label {
     font-weight: bold;
+    margin-right: 10px;
 }
 
 /* Modal styling */
