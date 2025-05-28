@@ -19,7 +19,11 @@ class ExpectimaxAgent(Agent):
         best_score = float('-inf')
         best_move = None
 
-        for move in game.get_available_moves():
+        available_moves = game.get_available_moves()
+        if not available_moves:
+            return -1  # No available moves
+
+        for move in available_moves:
             next_state = game.copy()
             next_state.step(move)
             score = self._expectimax(next_state, self.max_depth - 1, False)
@@ -36,7 +40,7 @@ class ExpectimaxAgent(Agent):
              return self._evaluate_board(game.board.grid)
 
         if is_max_player: # At a max node; try all valid moves
-            best_value = float('inf')
+            best_value = float('-inf')
             for move in game.get_available_moves():
                 next_state = game.copy()
                 next_state.step(move) # Applies a move and adds a random tile
@@ -113,7 +117,7 @@ class ExpectimaxAgent(Agent):
                         if ni < 4 and nj < 4 and board[ni][nj] != 0:
                             # If in range of board and not empty cell
                             neighbor_val = np.log2(board[ni][nj])
-                            # Differnece between values
+                            # Difference between values
                             penalty -= abs(val - neighbor_val)
 
             return penalty
@@ -126,6 +130,25 @@ class ExpectimaxAgent(Agent):
             corners = [board[0][0], board[0][-1], board[-1][0], board[-1][-1]]
             return 1 if max_val in corners else 0
 
+        def center_penalty(board):
+            """Penalize placing max tile in the center of the board.
+            Encourage keeping the largest tile in the corner (less likely to be merged accidentally)"""
+            i, j = np.unravel_index(np.argmax(board), board.shape)
+            return -1 if (i, j) in [(1, 1), (1, 2), (2, 1), (2, 2)] else 0
+
+        def merge_potential(board):
+            """Counts number of tiles adjacent and mergeable"""
+            merges = 0
+            for i in range(4):
+                for j in range(4):
+                    if board[i][j] == 0:
+                        continue
+                    if i < 3 and board[i][j] == board[i+1][j]:
+                        merges += 1
+                    if j < 3 and board[i][j] == board[i][j+1]:
+                        merges += 1
+            return merges
+
         def max_tile(board):
             """Encourage growth toward the goal tile."""
 
@@ -137,16 +160,21 @@ class ExpectimaxAgent(Agent):
         smooth = smoothness(board)
         mono = monotonicity(board)
         corner = corner_max_tile(board)
+        center = center_penalty(board)
+        merge = merge_potential(board)
         max_val = np.log2(max_tile(board))
 
         # Weighted sum of heuristics
         return (
-            2.5 * empty +
-            1.0 * smooth +
-            1.0 * mono +
-            10.0 * corner +
-            1.5 * max_val
+            3.0 * empty +
+            2.0 * smooth +
+            1.5 * mono +
+            5.0 * corner +
+            3.0 * max_val +
+            2.0 * merge +
+            5.0 * center
         )
+
     def get_config(self):
         return {
             'max_depth': self.max_depth
