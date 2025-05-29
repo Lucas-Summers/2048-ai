@@ -130,6 +130,7 @@ if __name__ == "__main__":
             print(f"  Average Moves: {metrics['avg_moves']:.2f}")
             print(f"  Efficiency: {metrics['efficiency']:.3f}")
             print(f"  Median Max Tile: {metrics['median_max_tile']:.0f}")
+            print(f"  Absolute Max Tile: {metrics['absolute_max_tile']:.0f}")
         
         visualizer = AgentVisualizer(analyzer.results)
 
