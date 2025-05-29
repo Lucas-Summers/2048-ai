@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Game constants
     const DIRECTIONS = {
         UP: 0,
         RIGHT: 1,
@@ -22,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'slow': 1.5   // 50% slower than medium
     };
 
-    // Game state
     let gameId = 'default';
     let gameRunning = false;
     let board = [];
@@ -36,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let isResetting = false; // Flag to indicate a game reset is in progress
     let currentAbortController = null; // For cancelling in-flight fetch requests
 
-    // DOM elements
     const gridContainer = document.getElementById('grid-container');
     const scoreDisplay = document.getElementById('score');
     const bestDisplay = document.getElementById('best');
@@ -74,20 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Keyboard controls
     document.addEventListener('keydown', handleKeyPress);
 
-    /**
-     * Initialize the game
-     */
     function initGame() {
-        // Create grid cells
         createGameGrid();
-        
-        // Ensure the correct speed is selected in the UI
         updateSpeedSelection();
-        
-        // Update animation speeds based on the selected speed
         updateAnimationSpeeds();
-        
-        // Start new game
         startNewGame();
     }
 
@@ -117,13 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return totalAnimationTime;
     }
 
-    /**
-     * Create the game grid
-     */
     function createGameGrid() {
         gridContainer.innerHTML = '';
         
-        // Create background grid cells
         for (let row = 0; row < 4; row++) {
             for (let col = 0; col < 4; col++) {
                 const cell = document.createElement('div');
@@ -135,16 +118,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Start a new game
-     */
     function startNewGame() {
         console.log("Starting new game...");
         
         // Set resetting flag to prevent further AI moves
         isResetting = true;
         
-        // Stop the AI immediately
         if (gameRunning) {
             stopAI();
         }
@@ -162,10 +141,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Force an immediate full state reset
-        // Clear the game grid of all tiles immediately
         document.getElementById('grid-container').innerHTML = '';
         
-        // Create background grid cells
         for (let row = 0; row < 4; row++) {
             for (let col = 0; col < 4; col++) {
                 const cell = document.createElement('div');
@@ -176,17 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Reset game state immediately
         board = [];
         score = 0;
         isGameOver = false;
         tileHistory = {};
         
-        // Update the score display immediately
         scoreDisplay.textContent = score;
         highestTilesDisplay.innerHTML = '';
         
-        // Now fetch the new game state from the server
         fetch('/api/new_game', {
             method: 'POST',
             headers: {
@@ -196,12 +170,10 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(response => response.json())
         .then(data => {
-            // Update game state with server response
             board = data.board;
             score = data.score;
             isGameOver = data.game_over;
             
-            // Update UI with new game state
             updateUI();
             
             // Initialize highest tile for the new game
@@ -218,7 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 recordHighestTile(highestValue);
             }
             
-            // Reset flag after new game is fully loaded
             isResetting = false;
             
             console.log("New game started successfully");
@@ -229,40 +200,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /**
-     * Stop the AI and clear any pending moves
-     */
     function stopAI() {
         console.log("Stopping AI");
         
-        // Set flag to stop AI
         gameRunning = false;
-        
-        // Update button text
         resumeButton.textContent = 'Start AI';
         
-        // Clear the timeout if there's a pending AI move
         if (aiTimeoutId !== null) {
             clearTimeout(aiTimeoutId);
             aiTimeoutId = null;
         }
         
-        // Cancel any in-flight fetch requests
         if (currentAbortController !== null) {
             currentAbortController.abort();
             currentAbortController = null;
         }
     }
 
-    /**
-     * Update the UI to reflect the current game state
-     */
     function updateUI() {
-        // Clear existing tiles
         const tiles = document.querySelectorAll('.tile');
         tiles.forEach(tile => tile.remove());
         
-        // Create new tiles based on the board state
         for (let row = 0; row < 4; row++) {
             for (let col = 0; col < 4; col++) {
                 if (board[row][col] > 0) {
@@ -271,10 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Update score
         scoreDisplay.textContent = score;
         
-        // Update best score if needed
         if (score > bestScore) {
             bestScore = score;
             bestDisplay.textContent = bestScore;
@@ -283,15 +239,11 @@ document.addEventListener('DOMContentLoaded', () => {
             bestDisplay.textContent = bestScore;
         }
         
-        // Check if game is over
         if (isGameOver) {
             showGameOver();
         }
     }
 
-    /**
-     * Create a new tile at the specified position
-     */
     function createTile(row, col, value, isNew = false, isMerged = false) {
         const tile = document.createElement('div');
         tile.className = `tile tile-${value}${isNew ? ' tile-new' : ''}${isMerged ? ' tile-merged' : ''}`;
@@ -302,9 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return tile;
     }
 
-    /**
-     * Handle key press events for manual play
-     */
     function handleKeyPress(event) {
         // Ignore key presses if game is over or AI is running
         if (isGameOver || gameRunning) return;
@@ -329,19 +278,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 direction = DIRECTIONS.DOWN;
                 break;
             default:
-                return; // Ignore other keys
+                return;
         }
         
-        // Prevent default behavior (scrolling)
         event.preventDefault();
-        
-        // Make the move
         makeMove(direction);
     }
 
-    /**
-     * Make a move in the specified direction
-     */
     function makeMove(direction) {
         fetch('/api/make_move', {
             method: 'POST',
@@ -356,32 +299,27 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(response => response.json())
         .then(data => {
             if (data.moved) {
-                // If there's a new highest tile, record it immediately
-                // This ensures the display doesn't flicker during animations
+                // Record highest tile immediately to prevent flicker during animations
                 if (data.highest_tile) {
                     recordHighestTile(data.highest_tile);
                 }
                 
-                // Store current display state to restore if needed
                 const currentHighestTilesHtml = highestTilesDisplay.innerHTML;
                 
-                // Animate tiles
                 animateMove(data);
                 
-                // Make sure the highest tiles display wasn't cleared during animation
+                // Restore highest tiles display if cleared during animation
                 if (highestTilesDisplay.innerHTML === '') {
                     highestTilesDisplay.innerHTML = currentHighestTilesHtml;
                 }
                 
-                // Get the computed animation durations for scheduling
                 const computedStyle = getComputedStyle(document.documentElement);
                 const movementDuration = parseInt(computedStyle.getPropertyValue('--movement-duration')) || 200;
                 const mergeDelay = parseInt(computedStyle.getPropertyValue('--merge-delay')) || 50;
                 const totalAnimDuration = movementDuration + mergeDelay + 100;
                 
-                // Update other game state after animations
+                // Update game state after animations complete
                 setTimeout(() => {
-                    // Check if game is being reset
                     if (isResetting) {
                         console.log("Animation complete but game is resetting, ignoring updates");
                         return;
@@ -391,7 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     score = data.score;
                     isGameOver = data.game_over;
                     
-                    // Make one final check that highest tiles display is still visible
                     if (highestTilesDisplay.innerHTML === '') {
                         updateHighestTilesDisplay();
                     }
@@ -409,11 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * Animate tile movements with proper sliding for merged tiles
      */
     function animateMove(data) {
-        // We need both old and new board states
         const oldBoard = board; // Current board state (before update)
         const newBoard = data.board; // New board state from server
         
-        // Track the specific new tile position
         let newTileRow = -1;
         let newTileCol = -1;
         
@@ -422,67 +357,54 @@ document.addEventListener('DOMContentLoaded', () => {
             newTileCol = data.new_tile.position[1];
         }
         
-        // If we have movement data, use it to track which tiles merged
+        // Track which tiles merged and moved
         const mergeMap = new Map(); // Maps destination position to source positions
         const movedTiles = new Map(); // Maps destination position to source position
         
         if (data.movements && data.merges) {
-            // First, track all movements
             data.movements.forEach(move => {
                 const fromKey = `${move.from[0]},${move.from[1]}`;
                 const toKey = `${move.to[0]},${move.to[1]}`;
                 movedTiles.set(toKey, fromKey);
             });
             
-            // Then, identify merges and their sources
             data.merges.forEach(merge => {
                 const pos = `${merge.position[0]},${merge.position[1]}`;
                 const sourceTiles = [];
                 
-                // Find all movements that end at this merge position
                 for (const [toPos, fromPos] of movedTiles.entries()) {
                     if (toPos === pos) {
                         sourceTiles.push(fromPos.split(',').map(Number));
                     }
                 }
                 
-                // Store source positions for this merge
                 if (sourceTiles.length > 0) {
                     mergeMap.set(pos, sourceTiles);
                 }
             });
         }
         
-        // Remove all tiles from the DOM
         const tiles = document.querySelectorAll('.tile');
         tiles.forEach(tile => tile.remove());
         
-        // Keep track of all tiles that need animation
         const tilesToAnimate = [];
         
-        // Process regular moves and merges
         for (let row = 0; row < 4; row++) {
             for (let col = 0; col < 4; col++) {
                 const newValue = newBoard[row][col];
                 const posKey = `${row},${col}`;
                 
-                // Skip empty cells
                 if (newValue === 0) continue;
                 
-                // Skip the new random tile - we'll add it separately
+                // Skip the new random tile - handle separately
                 if (row === newTileRow && col === newTileCol) continue;
                 
-                // Check if this position has a merged tile
                 if (data.merges && data.merges.some(m => m.position[0] === row && m.position[1] === col)) {
-                    // This is a merge position
                     const sourceTiles = mergeMap.get(posKey) || [];
                     
                     if (sourceTiles.length > 0) {
-                        // We know the exact source tiles
-                        
-                        // For animation, we'll create a tile at each source position
+                        // Create a tile at each source position for animation
                         for (const [sourceRow, sourceCol] of sourceTiles) {
-                            // Create a tile at the source position
                             const tile = document.createElement('div');
                             tile.className = `tile tile-${newValue/2}`; // Use the pre-merged value
                             tile.textContent = newValue/2;
@@ -490,7 +412,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             tile.style.top = `${sourceRow * 116.25 + 10}px`;
                             gridContainer.appendChild(tile);
                             
-                            // Add to animation list
                             tilesToAnimate.push({
                                 tile: tile,
                                 fromRow: sourceRow,
@@ -511,20 +432,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         tile.style.top = `${row * 116.25 + 10}px`;
                         gridContainer.appendChild(tile);
                         
-                        // Add merge animation
                         setTimeout(() => {
                             tile.classList.add('tile-merged');
                         }, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--movement-duration')) || 200);
                     }
                 } else if (data.movements) {
-                    // Check if this is a moved tile
                     const sourceKey = movedTiles.get(posKey);
                     
                     if (sourceKey) {
                         // This tile was moved from another position
                         const [sourceRow, sourceCol] = sourceKey.split(',').map(Number);
                         
-                        // Create tile at source position
                         const tile = document.createElement('div');
                         tile.className = `tile tile-${newValue}`;
                         tile.textContent = newValue;
@@ -532,7 +450,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         tile.style.top = `${sourceRow * 116.25 + 10}px`;
                         gridContainer.appendChild(tile);
                         
-                        // Add to animation list
                         tilesToAnimate.push({
                             tile: tile,
                             fromRow: sourceRow,
@@ -564,42 +481,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Ensure the DOM has time to render the tiles in their initial positions
-        // before starting animations
+        // Ensure DOM renders tiles in initial positions before animating
         requestAnimationFrame(() => {
-            // Get computed animation durations
             const computedStyle = getComputedStyle(document.documentElement);
             const movementDuration = parseInt(computedStyle.getPropertyValue('--movement-duration')) || 200;
             const mergeDelay = parseInt(computedStyle.getPropertyValue('--merge-delay')) || 50;
             
-            // Start animations
             for (const animInfo of tilesToAnimate) {
                 const { tile, fromRow, fromCol, toRow, toCol, value, finalValue, isMerge } = animInfo;
                 
-                // Add transition using CSS variables
                 tile.style.transition = `top var(--movement-duration) ease, left var(--movement-duration) ease`;
                 
-                // Force a reflow to ensure the transition is applied
+                // Force reflow to ensure transition is applied
                 tile.offsetHeight;
                 
-                // Move to destination
                 tile.style.top = `${toRow * 116.25 + 10}px`;
                 tile.style.left = `${toCol * 116.25 + 10}px`;
                 
-                // If it's a merge, handle the merge after movement completes
                 if (isMerge) {
                     setTimeout(() => {
-                        // Remove the original tiles
                         tile.remove();
                         
-                        // Check if we need to create the merged tile
-                        // (we only need to do this once per merge position)
+                        // Create merged tile only once per merge position
                         const existingMergedTile = document.querySelector(
                             `.tile-merged[style*="top: ${toRow * 116.25 + 10}px"][style*="left: ${toCol * 116.25 + 10}px"]`
                         );
                         
                         if (!existingMergedTile) {
-                            // Create the merged tile
                             const mergedTile = document.createElement('div');
                             mergedTile.className = `tile tile-${finalValue} tile-merged`;
                             mergedTile.textContent = finalValue;
@@ -612,29 +520,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // Add the new tile with proper animation - much sooner
+        // Add new tile after movement animation completes
         if (data.new_tile) {
-            // Get computed animation duration
             const computedStyle = getComputedStyle(document.documentElement);
             const movementDuration = parseInt(computedStyle.getPropertyValue('--movement-duration')) || 200;
             
-            // Create the new tile much earlier - right after the movement starts
             setTimeout(() => {
                 const row = newTileRow;
                 const col = newTileCol;
                 const value = data.new_tile.value;
                 
-                // Create new tile with 'new' animation
                 const newTile = document.createElement('div');
                 newTile.className = `tile tile-${value} tile-new`;
                 newTile.textContent = value;
                 newTile.style.left = `${col * 116.25 + 10}px`;
                 newTile.style.top = `${row * 116.25 + 10}px`;
                 gridContainer.appendChild(newTile);
-            }, movementDuration); // Only wait for movement animation, don't add the other delays
+            }, movementDuration);
         }
         
-        // Update score display
         if (data.score !== undefined) {
             scoreDisplay.textContent = data.score;
             if (data.score > bestScore) {
@@ -652,10 +556,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameRunning) {
             stopAI();
         } else {
-            // Update speed selection before starting AI
             updateSpeedSelection();
             
-            // Start AI
             gameRunning = true;
             resumeButton.textContent = 'Stop AI';
             runAI();
@@ -666,7 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
      * Run the AI gameplay loop
      */
     function runAI() {
-        // Check if game is over, AI is stopped, or game is resetting
         if (!gameRunning || isGameOver || isResetting) {
             console.log("AI stopped: gameRunning=", gameRunning, "isGameOver=", isGameOver, "isResetting=", isResetting);
             stopAI();
@@ -675,7 +576,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         console.log("Making AI move");
         
-        // Create a new AbortController for this request
         currentAbortController = new AbortController();
         
         fetch('/api/ai_move', {
@@ -687,11 +587,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 game_id: gameId,
                 ai_type: aiAgent
             }),
-            signal: currentAbortController.signal // Add the abort signal
+            signal: currentAbortController.signal
         })
         .then(response => response.json())
         .then(data => {
-            // Check again if game is still running or not resetting
             if (!gameRunning || isResetting) {
                 console.log("AI stopped during fetch: gameRunning=", gameRunning, "isResetting=", isResetting);
                 return;
@@ -703,23 +602,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     recordHighestTile(data.highest_tile);
                 }
                 
-                // Store current display state to restore if needed
                 const currentHighestTilesHtml = highestTilesDisplay.innerHTML;
                 
-                // Animate tiles
                 animateMove(data);
                 
-                // Make sure the highest tiles display wasn't cleared during animation
+                // Restore display if cleared during animation
                 if (highestTilesDisplay.innerHTML === '') {
                     highestTilesDisplay.innerHTML = currentHighestTilesHtml;
                 }
                 
-                // Update game state
                 board = data.board;
                 score = data.score;
                 isGameOver = data.game_over;
                 
-                // Update agent stats if available
                 if (data.agent_stats) {
                     updateAgentStats(data.agent_stats);
                 }
@@ -727,14 +622,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Calculate timing for next move based on current animation speed
                 const animationDuration = updateAnimationSpeeds();
                 
-                // Make one final check that highest tiles display is still visible
                 if (highestTilesDisplay.innerHTML === '') {
                     updateHighestTilesDisplay();
                 }
                 
-                // Continue AI if game is not over and not resetting
                 if (!isGameOver && gameRunning && !isResetting) {
-                    // Schedule next move based on speed, but ensuring animations complete first
+                    // Schedule next move, ensuring animations complete first
                     const nextMoveDelay = Math.max(SPEEDS[aiSpeed], animationDuration);
                     
                     aiTimeoutId = setTimeout(() => {
@@ -747,17 +640,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     stopAI();
                 }
             } else if (data.game_over) {
-                // Game is over without moving
                 isGameOver = true;
                 showGameOver();
                 stopAI();
             } else {
-                // No valid move but game not over
                 stopAI();
             }
         })
         .catch(error => {
-            // Check if this was an abort error (which is expected when stopping)
+            // Check if this was an abort error (expected when stopping)
             if (error.name === 'AbortError') {
                 console.log('AI move request was aborted');
             } else {
@@ -778,10 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Reset agent stats display
         agentStats.innerHTML = '<p>No stats available yet</p>';
-        
-        // Restart the game with the new AI
         startNewGame();
     }
 
@@ -789,7 +677,6 @@ document.addEventListener('DOMContentLoaded', () => {
      * Update the AI speed
      */
     function updateAISpeed() {
-        // Get the selected speed
         for (const radio of speedRadios) {
             if (radio.checked) {
                 aiSpeed = radio.value;
@@ -797,7 +684,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Update animation speeds based on new AI speed
         updateAnimationSpeeds();
     }
 
@@ -805,7 +691,6 @@ document.addEventListener('DOMContentLoaded', () => {
      * Ensure the correct speed button is selected
      */
     function updateSpeedSelection() {
-        // Find the radio button matching the current aiSpeed and check it
         for (const radio of speedRadios) {
             if (radio.value === aiSpeed) {
                 radio.checked = true;
@@ -825,41 +710,33 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let statsHtml = '';
         
-        // Sort the stats for better readability - put standard stats first, then alphabetical
+        // Sort stats - priority stats first, then alphabetical
         const priorityStats = ["thinking_time", "iterations", "nodes_explored", "max_depth"];
         const sortedKeys = Object.keys(stats).sort((a, b) => {
             const aIndex = priorityStats.indexOf(a);
             const bIndex = priorityStats.indexOf(b);
             
-            // If both keys are in priorityStats, sort by their order in that array
             if (aIndex !== -1 && bIndex !== -1) {
                 return aIndex - bIndex;
             }
             
-            // If only one key is in priorityStats, prioritize it
             if (aIndex !== -1) return -1;
             if (bIndex !== -1) return 1;
             
-            // Otherwise sort alphabetically
             return a.localeCompare(b);
         });
         
-        // Create HTML for each stat
         for (const key of sortedKeys) {
             const value = stats[key];
             
-            // Format the key by replacing underscores with spaces and capitalizing
             const formattedKey = key.replace(/_/g, ' ')
                 .replace(/\b\w/g, l => l.toUpperCase());
             
-            // Format value based on type
             let formattedValue = value;
             if (typeof value === 'number' && !Number.isInteger(value)) {
-                // Format decimal numbers to 2 decimal places
                 formattedValue = value.toFixed(2);
             }
             
-            // Add to stats HTML
             statsHtml += `<p><span class="stat-label">${formattedKey}:</span> ${formattedValue}</p>`;
         }
         
@@ -872,13 +749,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function recordHighestTile(value) {
         if (!value || value <= 0) return;
         
-        // Check if this is a new high value we haven't seen before
         const isNewHighValue = !tileHistory[value];
         
-        // Track this value in history
         tileHistory[value] = true;
         
-        // Update display
         updateHighestTilesDisplay(isNewHighValue ? value : null);
     }
 
@@ -887,46 +761,39 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {number|null} animatedValue - The value to animate with pop effect (if any)
      */
     function updateHighestTilesDisplay(animatedValue = null) {
-        // Clear the display first
         highestTilesDisplay.innerHTML = '';
         
-        // If we have no tile history, nothing to display
         if (Object.keys(tileHistory).length === 0) {
             return;
         }
         
-        // Get all tile values and sort them
         const tileValues = Object.keys(tileHistory)
             .map(val => parseInt(val))
             .sort((a, b) => b - a);
         
-        // Create a container for the row with a specific class
         const rowContainer = document.createElement('div');
         rowContainer.className = 'highest-tiles-row';
         rowContainer.style.display = 'flex';
         rowContainer.style.flexDirection = 'row';
-        rowContainer.style.justifyContent = 'flex-start'; // Left alignment
+        rowContainer.style.justifyContent = 'flex-start';
         rowContainer.style.flexWrap = 'nowrap';
         rowContainer.style.width = '100%';
         
         // Take only top 6 values
         const topValues = tileValues.slice(0, 6);
         
-        // Create a tile for each value
         for (const value of topValues) {
             const tile = document.createElement('div');
             
-            // Determine if this tile should have the pop animation
             const shouldAnimate = value === animatedValue;
             
-            // Apply the appropriate classes
             if (shouldAnimate) {
                 tile.className = `highest-tile tile-${value} tile-merged`;
             } else {
                 tile.className = `highest-tile tile-${value}`;
             }
             
-            // Adjust styling to ensure they fit on one row
+            // Styling to fit on one row
             tile.style.width = '50px';
             tile.style.height = '50px';
             tile.style.fontSize = value >= 1024 ? '16px' : '22px';
@@ -949,7 +816,6 @@ document.addEventListener('DOMContentLoaded', () => {
      * Show the game over modal
      */
     function showGameOver() {
-        // Build game over stats
         const highestTile = Math.max(...board.flat());
         
         let statsHtml = `
@@ -962,8 +828,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         gameOverStats.innerHTML = statsHtml;
-        
-        // Show the modal
         gameOverModal.style.display = 'flex';
     }
 });

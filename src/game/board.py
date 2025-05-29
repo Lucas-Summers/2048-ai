@@ -3,12 +3,11 @@ import random
 
 class Board:
     def __init__(self, size=4):
-        """Initialize a new 2048 board with the specified size."""
         self.size = size
         self.grid = np.zeros((size, size), dtype=int)
-        self.last_move_info = None  # To store info about the last move
+        self.last_move_info = None
 
-        # Add initial tiles
+        # Add initial two tiles (2 or 4)
         self.add_random_tile()
         self.add_random_tile()
         
@@ -19,8 +18,6 @@ class Board:
             i, j = random.choice(empty_cells)
             value = 2 if random.random() < 0.9 else 4
             self.grid[i, j] = value
-            
-            # Return the new tile information
             return {'position': (i, j), 'value': value}
         return None
             
@@ -29,17 +26,7 @@ class Board:
         return np.count_nonzero(self.grid == 0)
     
     def _slide_row(self, row):
-        """
-        Slide and merge tiles in a row to the left, tracking movements and merges.
-        
-        Args:
-            row: Row to slide and merge
-            
-        Returns:
-            tuple: (new_row, score, movements, merges)
-        """
-        # Create copies for comparison
-        original_row = row.copy()
+        """Slide and merge tiles in a row to the left, tracking movements and merges."""
         new_row = np.zeros_like(row)
         score = 0
         movements = []
@@ -68,7 +55,7 @@ class Board:
                     'merged_from': [non_zero_indices[i], non_zero_indices[i + 1]]
                 })
                 
-                # Skip the next value by incrementing i by 2
+                # Skip the next value
                 i += 2
             else:
                 # No merge, just move
@@ -84,25 +71,13 @@ class Board:
                 
                 # Move to the next value
                 i += 1
-            
-            # Advance write position
+
             write_idx += 1
         
         return new_row, score, movements, merges
 
     def _apply_move(self, grid, direction):
-        """
-        Apply move logic to a grid and return detailed information.
-        Does not modify the original grid.
-        
-        Args:
-            grid: The grid to analyze
-            direction: Direction (0:up, 1:right, 2:down, 3:left)
-            
-        Returns:
-            tuple: (moved, score, new_grid, movements, merges)
-        """
-        # Create a copy of the grid to modify
+        """Apply move logic to a grid and return detailed info without modifying the original grid."""
         new_grid = grid.copy()
         score = 0
         all_movements = []
@@ -111,117 +86,105 @@ class Board:
         # Transform row/column indices based on direction
         if direction == 0:  # Up
             for col in range(self.size):
-                # Extract column
                 column = new_grid[:, col].copy()
-                # Process as if sliding left
                 new_column, col_score, col_movements, col_merges = self._slide_row(column)
-                # Update grid with new column
                 new_grid[:, col] = new_column
                 score += col_score
                 
                 # Adjust movement indices to reflect column orientation
                 for move in col_movements:
                     all_movements.append({
-                        'from': (move['from'], col),
-                        'to': (move['to'], col),
-                        'value': move['value']
+                        'from': (int(move['from']), int(col)),
+                        'to': (int(move['to']), int(col)),
+                        'value': int(move['value'])
                     })
                 
                 # Adjust merge indices to reflect column orientation
                 for merge in col_merges:
                     adjusted_merge = {
-                        'position': (merge['position'], col),
-                        'value': merge['value'],
-                        'merged_from': [(pos, col) for pos in merge['merged_from']]
+                        'position': (int(merge['position']), int(col)),
+                        'value': int(merge['value']),
+                        'merged_from': [(int(pos), int(col)) for pos in merge['merged_from']]
                     }
                     all_merges.append(adjusted_merge)
                 
         elif direction == 1:  # Right
-            for row in range(self.size):
-                # Extract row and reverse it
-                r = new_grid[row, :].copy()[::-1]
-                # Process as if sliding left
-                new_r, row_score, row_movements, row_merges = self._slide_row(r)
-                # Update grid with new row (reversed back)
-                new_grid[row, :] = new_r[::-1]
+            for r in range(self.size):
+                row = new_grid[r, :].copy()[::-1]
+                new_row, row_score, row_movements, row_merges = self._slide_row(row)
+                new_grid[r, :] = new_row[::-1]
                 score += row_score
                 
-                # Adjust movement indices to reflect row orientation and reversal
+                # Adjust movement indices to reflect row orientation
                 for move in row_movements:
                     from_col = self.size - 1 - move['from']
                     to_col = self.size - 1 - move['to']
                     all_movements.append({
-                        'from': (row, from_col),
-                        'to': (row, to_col),
-                        'value': move['value']
+                        'from': (int(r), int(from_col)),
+                        'to': (int(r), int(to_col)),
+                        'value': int(move['value'])
                     })
                 
-                # Adjust merge indices to reflect row orientation and reversal
+                # Adjust merge indices to reflect row orientation
                 for merge in row_merges:
                     position_col = self.size - 1 - merge['position']
-                    merged_from = [(row, self.size - 1 - pos) for pos in merge['merged_from']]
+                    merged_from = [(int(r), int(self.size - 1 - pos)) for pos in merge['merged_from']]
                     adjusted_merge = {
-                        'position': (row, position_col),
-                        'value': merge['value'],
+                        'position': (int(r), int(position_col)),
+                        'value': int(merge['value']),
                         'merged_from': merged_from
                     }
                     all_merges.append(adjusted_merge)
                 
         elif direction == 2:  # Down
             for col in range(self.size):
-                # Extract column and reverse it
                 column = new_grid[:, col].copy()[::-1]
-                # Process as if sliding left
                 new_column, col_score, col_movements, col_merges = self._slide_row(column)
-                # Update grid with new column (reversed back)
                 new_grid[:, col] = new_column[::-1]
                 score += col_score
                 
-                # Adjust movement indices to reflect column orientation and reversal
+                # Adjust movement indices to reflect column orientation
                 for move in col_movements:
                     from_row = self.size - 1 - move['from']
                     to_row = self.size - 1 - move['to']
                     all_movements.append({
-                        'from': (from_row, col),
-                        'to': (to_row, col),
-                        'value': move['value']
+                        'from': (int(from_row), int(col)),
+                        'to': (int(to_row), int(col)),
+                        'value': int(move['value'])
                     })
                 
-                # Adjust merge indices to reflect column orientation and reversal
+                # Adjust merge indices to reflect column orientation
                 for merge in col_merges:
                     position_row = self.size - 1 - merge['position']
-                    merged_from = [(self.size - 1 - pos, col) for pos in merge['merged_from']]
+                    merged_from = [(int(self.size - 1 - pos), int(col)) for pos in merge['merged_from']]
                     adjusted_merge = {
-                        'position': (position_row, col),
-                        'value': merge['value'],
+                        'position': (int(position_row), int(col)),
+                        'value': int(merge['value']),
                         'merged_from': merged_from
                     }
                     all_merges.append(adjusted_merge)
                 
         elif direction == 3:  # Left
-            for row in range(self.size):
-                # Extract row
-                r = new_grid[row, :].copy()
-                # Process as if sliding left (natural direction)
-                new_r, row_score, row_movements, row_merges = self._slide_row(r)
-                # Update grid with new row
-                new_grid[row, :] = new_r
+            for r in range(self.size):
+                row = new_grid[r, :].copy()
+                new_row, row_score, row_movements, row_merges = self._slide_row(row)
+                new_grid[r, :] = new_row
                 score += row_score
                 
                 # Adjust movement indices to reflect row orientation
                 for move in row_movements:
                     all_movements.append({
-                        'from': (row, move['from']),
-                        'to': (row, move['to']),
-                        'value': move['value']
+                        'from': (int(r), int(move['from'])),
+                        'to': (int(r), int(move['to'])),
+                        'value': int(move['value'])
                     })
                 
                 # Adjust merge indices to reflect row orientation
                 for merge in row_merges:
                     adjusted_merge = {
-                        'position': (row, merge['position']),
-                        'value': merge['value'],
-                        'merged_from': [(row, pos) for pos in merge['merged_from']]
+                        'position': (int(r), int(merge['position'])),
+                        'value': int(merge['value']),
+                        'merged_from': [(int(r), int(pos)) for pos in merge['merged_from']]
                     }
                     all_merges.append(adjusted_merge)
         
@@ -231,28 +194,12 @@ class Board:
         return moved, score, new_grid, all_movements, all_merges
 
     def move(self, direction, return_info=False):
-        """
-        Apply a move and add a random tile if the board changes.
-        
-        Args:
-            direction: Direction to move (0:up, 1:right, 2:down, 3:left)
-            return_info: Whether to return detailed move information
-            
-        Returns:
-            If return_info is False: bool indicating if the move changed the board
-            If return_info is True: dict with detailed move information
-        """
-        # Apply move logic
+        """Apply a move and add a random tile if the board changes."""
         moved, score, new_grid, movements, merges = self._apply_move(self.grid, direction)
         
         if moved:
-            # Update the grid
             self.grid = new_grid
-            
-            # Add a random tile
             new_tile = self.add_random_tile()
-            
-            # Store last move info
             self.last_move_info = {
                 'moved': moved,
                 'score': score,
@@ -261,7 +208,6 @@ class Board:
                 'new_tile': new_tile
             }
         else:
-            # No movement occurred
             self.last_move_info = {
                 'moved': False,
                 'score': 0,
@@ -273,16 +219,7 @@ class Board:
         return self.last_move_info if return_info else moved
 
     def is_valid_move(self, direction):
-        """
-        Check if a move is valid (would change the board).
-        
-        Args:
-            direction: Direction to check (0:up, 1:right, 2:down, 3:left)
-            
-        Returns:
-            bool: True if the move is valid, False otherwise
-        """
-        # Use _apply_move to check if the move would change the grid
+        """Check if a move is valid (would change the board)."""
         moved, _, _, _, _ = self._apply_move(self.grid, direction)
         return moved
 
@@ -309,7 +246,6 @@ class Board:
         return new_board
     
     def __str__(self):
-        """String representation of the board."""
         result = ""
         for i in range(self.size):
             for j in range(self.size):

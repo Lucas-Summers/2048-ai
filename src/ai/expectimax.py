@@ -1,153 +1,147 @@
-import numpy as np
-
+import time
 from .base import Agent
+from .heuristics.base import CompositeHeuristic
+from .heuristics.core import EmptyTilesHeuristic, MonotonicityHeuristic, SmoothnessHeuristic, CornerMaxHeuristic, MergePotentialHeuristic, MaxValueHeuristic
 
 class ExpectimaxAgent(Agent):
-    """
-    Agent that uses Expectimax search to find optimal moves in 2048.
-    Accounts for randomness in tile placement.
-    """
-    
-    def __init__(self, name="Expectimax", max_depth=3):
+    def __init__(self, name="Expectimax", thinking_time=0.5):
         super().__init__(name)
-        self.max_depth = max_depth
+        self.thinking_time = thinking_time
+        
+        # Create composite heuristic for evaluation
+        self.heuristic = CompositeHeuristic()
+        self.heuristic.add_heuristic(EmptyTilesHeuristic(), 3.0)
+        self.heuristic.add_heuristic(MonotonicityHeuristic(), 1.5) 
+        self.heuristic.add_heuristic(CornerMaxHeuristic(), 5.0)
+        self.heuristic.add_heuristic(SmoothnessHeuristic(), 2.0)
+        self.heuristic.add_heuristic(MergePotentialHeuristic(), 2.5)
+        self.heuristic.add_heuristic(MaxValueHeuristic(), 3.0)
+
+        self.stats = {
+            "search_iterations": 0,     # Total move evaluations performed
+            "max_depth_reached": 0,     # Maximum search depth reached
+            "avg_reward": 0.0           # Average heuristic value of evaluated positions
+        }
     
     def get_move(self, game):
-        """Entry point for the agent. Loop over all possible moves (up/down/left/right),
-         simulate the result, and run _expectimax on each. Return the direction with
-         the best expected score."""
-        best_score = float('-inf')
+        """Returns the best move using Expectimax with progressive deepening."""
+        
+        # Reset stats each move
+        self.stats = {
+            "search_iterations": 0,
+            "max_depth_reached": 0,
+            "avg_reward": 0.0
+        }
+        
+        available_moves = game.get_available_moves()
+        if not available_moves:
+            return -1
+        if len(available_moves) == 1:
+            return available_moves[0]
+        
+        total_evaluations = 0
+        total_reward = 0.0
+        start_time = time.time()
         best_move = None
-
-        for move in game.get_available_moves():
-            next_state = game.copy()
-            next_state.step(move)
-            score = self._expectimax(next_state, self.max_depth - 1, False)
-            if score > best_score:
-                best_score = score
-                best_move = move
-
-        return best_move
-
-
-    
-    def _expectimax(self, game, depth, is_max_player):
-        if depth == 0 or game.is_game_over():
-             return self._evaluate_board(game.board.grid)
-
-        if is_max_player: # At a max node; try all valid moves
-            best_value = float('inf')
-            for move in game.get_available_moves():
+        depth = 1
+        while time.time() - start_time < self.thinking_time:
+            current_best_move = None
+            current_best_score = float('-inf')
+            depth_completed = True
+            
+            for move in available_moves:
+                # Check if we still have time for this move
+                if time.time() - start_time >= self.thinking_time:
+                    depth_completed = False
+                    break
+                
                 next_state = game.copy()
-                next_state.step(move) # Applies a move and adds a random tile
-                value = self._expectimax(next_state, depth - 1, False)
+                next_state.step(move)
+                
+                score = self._expectimax(next_state, depth - 1, False, start_time)
+                
+                total_evaluations += 1
+                total_reward += score
+                self.stats["search_iterations"] += 1
+                
+                if score > current_best_score:
+                    current_best_score = score
+                    current_best_move = move
+            
+            if not depth_completed:
+                break
+                
+            if depth_completed and current_best_move is not None:
+                best_move = current_best_move
+            
+            depth += 1
+            
+        if total_evaluations > 0:
+            self.stats["avg_reward"] = total_reward / total_evaluations
+            
+        return best_move if best_move is not None else available_moves[0]
+
+    def _expectimax(self, game, depth, is_max_player, start_time):
+        """Complete Expectimax search with time checks."""
+        
+        # Time check before any evaluation
+        if time.time() - start_time >= self.thinking_time:
+            return self.heuristic.evaluate(game.board.grid)
+            
+        # Base cases
+        if depth == 0 or game.is_game_over():
+            return self.heuristic.evaluate(game.board.grid)
+        
+        self.stats["max_depth_reached"] = max(self.stats["max_depth_reached"], depth)
+
+        if is_max_player:
+            # Max node: try all valid moves
+            best_value = float('-inf')
+            moves = game.get_available_moves()
+            
+            for move in moves:
+                # Time check before processing each move
+                if time.time() - start_time >= self.thinking_time:
+                    break
+                    
+                next_state = game.copy()
+                next_state.step(move)
+                value = self._expectimax(next_state, depth - 1, False, start_time)
                 best_value = max(best_value, value)
+            
             return best_value
 
-        else: # Chance node (2 with 90% chance, 4 with 10% chance)
-            empty = []
+        else:
+            # Chance node: evaluate all empty cells
+            empty_cells = []
             for i in range(game.board.size):
                 for j in range(game.board.size):
                     if game.board.grid[i,j] == 0:
-                        empty.append((i,j))
+                        empty_cells.append((i,j))
 
-            if len(empty) == 0: # No empty tiles
-                return self._evaluate_board(game.board.grid)
+            if len(empty_cells) == 0:
+                return self.heuristic.evaluate(game.board.grid)
 
             expected_value = 0
-            for (i, j) in empty:
-                for tile_value, probability in [(2,0.9),(4,0.1)]:
+            for (i, j) in empty_cells:
+                # Time check before processing each empty cell
+                if time.time() - start_time >= self.thinking_time:
+                    break
+                    
+                for tile_value, probability in [(2, 0.9), (4, 0.1)]:
                     next_game = game.copy()
                     next_game.board.grid[i,j] = tile_value
-                    value = self._expectimax(next_game, depth - 1, True)
+                    value = self._expectimax(next_game, depth - 1, True, start_time)
                     expected_value += value * probability
-            expected_value /= len(empty) # Take average val across all empty spots
+                    
+            # Average across all empty positions
+            expected_value /= len(empty_cells)
             return expected_value
 
-
+    def get_stats(self):
+        return self.stats.copy()
     
-    def _evaluate_board(self, board):
-
-        def num_empty_tiles(board):
-            """More empty tiles = more flexibility and less risk.
-            Reward boards with more 0s."""
-
-            return np.count_nonzero(board == 0)
-
-        def monotonicity(board):
-            """Measures whether values increase or decrease consistently across rows
-            or columns. Boards with decreasing rows/cols (e.g. [128, 64, 32, 16]) are
-             easier to merge and build up. Calculates how much the values are
-             increasing (inc) or decreasing (dec). """
-            """Higher scores (less negative) = more monotonic board = better."""
-            def score_line(line):
-                inc = 0
-                dec = 0
-                for i in range(3):
-                    if line[i] <= line[i+1]:
-                        inc += line[i+1] - line[i]
-                    else:
-                        dec += line[i] - line[i + 1]
-                return -min(inc, dec)
-            """If a row is strongly increasing, the decrease cost is low -> good.
-            If a row is strongly decreasing, the increase cost is low -> also good.
-            If a row/column is mixed or oscillating, both inc and dec will be high -> bad."""
-            score = 0
-            for row in board:
-                score += score_line(row)
-            for col in board.T:
-                score += score_line(col)
-            return score
-
-        def smoothness(board):
-            """Penalizes abrupt changes between adjacent tiles. Ideal boards have
-            neighboring tiles that are similar in value (e.g. [16, 16] or [128, 64])."""
-            penalty = 0
-            for i in range(4):
-                for j in range(4):
-                    if board[i][j] == 0:
-                        continue
-                    val = np.log2(board[i][j]) # Use log to dilute penalty
-                    for dx, dy in [(0,1),(1,0)]:
-                        ni, nj = i + dx, j + dy
-                        if ni < 4 and nj < 4 and board[ni][nj] != 0:
-                            # If in range of board and not empty cell
-                            neighbor_val = np.log2(board[ni][nj])
-                            # Differnece between values
-                            penalty -= abs(val - neighbor_val)
-
-            return penalty
-
-        def corner_max_tile(board):
-            """Reward boards where the highest tile is in a corner (e.g. top-left).
-            Strategic stacking tends to place the max tile there."""
-
-            max_val = max_tile(board)
-            corners = [board[0][0], board[0][-1], board[-1][0], board[-1][-1]]
-            return 1 if max_val in corners else 0
-
-        def max_tile(board):
-            """Encourage growth toward the goal tile."""
-
-            # MULTIPLIER: log(max) * 2
-            return np.max(board)
-
-
-        empty = num_empty_tiles(board)
-        smooth = smoothness(board)
-        mono = monotonicity(board)
-        corner = corner_max_tile(board)
-        max_val = np.log2(max_tile(board))
-
-        # Weighted sum of heuristics
-        return (
-            2.5 * empty +
-            1.0 * smooth +
-            1.0 * mono +
-            10.0 * corner +
-            1.5 * max_val
-        )
     def get_config(self):
         return {
-            'max_depth': self.max_depth
-        }
+            'thinking_time': self.thinking_time,
+        } 
