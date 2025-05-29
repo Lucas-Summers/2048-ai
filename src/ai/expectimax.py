@@ -103,7 +103,6 @@ class ExpectimaxAgent(Agent):
                 # Time check before processing each move
                 if time.time() - start_time >= self.thinking_time:
                     break
-                    
                 next_state = game.copy()
                 next_state.step(move)
                 value = self._expectimax(next_state, depth - 1, False, start_time)
