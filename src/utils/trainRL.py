@@ -1,9 +1,15 @@
 from __future__ import annotations
 import statistics
 import time
+import sys
 from collections import deque
 from pathlib import Path
 from typing import Deque, Tuple
+
+# Add parent directory to path so we can import from ai and game modules
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 import numpy as np
 from ai.rl import RLAgent
 from game.game import Game2048

@@ -4,19 +4,9 @@ import pandas as pd
 import numpy as np
 import json
 
-
 class AgentVisualizer:
     def __init__(self, analyzer_results=None):
-        """
-        Initialize the visualizer with optional analyzer results.
-        
-        Args:
-            analyzer_results: Results dictionary from AgentAnalyzer or path to JSON file
-        """
-        # Set up styling
         self.setup_style()
-        
-        # Load results if provided
         self.results = {}
         if analyzer_results:
             if isinstance(analyzer_results, dict):
@@ -27,12 +17,30 @@ class AgentVisualizer:
     def setup_style(self):
         """Configure plot styling for consistency and improved aesthetics."""
         sns.set_style("whitegrid")
-        # Use multiple color palettes for better distinction between agents
-        colors = (sns.color_palette("Set1", 9) + 
-                 sns.color_palette("Set2", 8) + 
-                 sns.color_palette("Dark2", 8))
-        self.agent_colors = colors
+        
+        # 2048 game tile colors for agent differentiation
+        tile_colors = [
+            '#f2b179',  # tile-8
+            '#f59563',  # tile-16
+            '#f67c5f',  # tile-32
+            '#f65e3b',  # tile-64
+            '#edcf72',  # tile-128
+            '#edcc61',  # tile-256
+            '#edc850',  # tile-512
+            '#edc53f',  # tile-1024
+            '#edc22e',  # tile-2048
+        ]
+        self.agent_colors = tile_colors
         self.move_names = {0: "Up", 1: "Right", 2: "Down", 3: "Left"}
+
+        # 2048 game theme colors (simplified)
+        self.bg_color = '#d8c8b8'         # Background (light brown)
+        #self.bg_color = '#cdc1b4'         # Background (light brown)
+        self.text_color = '#776e65'       # Text (dark brown-gray)
+        self.highlight_color = '#bbada0'  # Highlights (brown-gray)
+        
+        # Standard figure size for ALL plots
+        self.standard_figsize = (12, 6)
     
     def load_results(self, filename):
         """Load results from a JSON file."""
@@ -40,17 +48,6 @@ class AgentVisualizer:
             self.results = json.load(f)
         print(f"Loaded visualization data for {len(self.results)} agents from {filename}")
         return self.results
-    
-    def save_comparison_csv(self, filename="agent_comparison.csv", output_dir="."):
-        """Save comparison data to a CSV file."""
-        if not self.results:
-            print("No results to export")
-            return
-        
-        df = self.prepare_comparison_dataframe()
-        full_path = f"{output_dir}/{filename}"
-        df.to_csv(full_path, index=False)
-        print(f"Comparison data saved to {full_path}")
     
     def prepare_comparison_dataframe(self):
         """Prepare a DataFrame with comparison metrics for all agents."""
@@ -72,286 +69,315 @@ class AgentVisualizer:
         
         return pd.DataFrame(data)
     
-    def plot_score_distributions_separate(self, output_dir=".", figsize=(8, 6)):
-        """Plot separate score distribution for each agent and save individual files."""
-        if not self.results:
-            print("No results to visualize")
-            return []
-        
-        figures = []
-        
-        for i, (agent_name, stats) in enumerate(self.results.items()):
-            fig, ax = plt.subplots(figsize=figsize)
-            
-            color = self.agent_colors[i % len(self.agent_colors)]
-            sns.histplot(stats["scores"], bins=20, alpha=0.7, color=color, ax=ax)
-            ax.set_title(f"{agent_name} - Score Distribution\nAvg: {stats['avg_score']:.0f}", 
-                        fontsize=14, fontweight="bold")
-            ax.set_xlabel("Score", fontsize=12)
-            ax.set_ylabel("Frequency", fontsize=12)
-            ax.grid(True, alpha=0.3)
-            
-            # Save individual file
-            safe_name = agent_name.replace(" ", "_").replace("/", "_")
-            filename = f"{output_dir}/score_distribution_{safe_name}.png"
-            fig.savefig(filename, dpi=300, bbox_inches='tight')
-            print(f"Saved: {filename}")
-            
-            figures.append(fig)
-        
-        return figures
-    
-    def plot_score_distributions_combined(self, output_dir=".", figsize=(10, 6)):
-        """Plot combined score distributions for all agents."""
+    def plot_score_distributions(self, output_dir=".", figsize=None):
+        """Plot score distributions for all agents."""
         if not self.results:
             print("No results to visualize")
             return None
         
-        plt.figure(figsize=figsize)
+        if figsize is None:
+            figsize = self.standard_figsize
         
+        fig, ax = plt.subplots(figsize=figsize)
         for i, (agent_name, stats) in enumerate(self.results.items()):
             color = self.agent_colors[i % len(self.agent_colors)]
             sns.kdeplot(stats["scores"], label=f"{agent_name} (avg: {stats['avg_score']:.0f})", 
-                       color=color, linewidth=2)
+                       color=color, linewidth=2, ax=ax)
         
-        plt.title("Combined Score Distributions", fontsize=14, fontweight="bold")
-        plt.xlabel("Score", fontsize=12)
-        plt.ylabel("Density", fontsize=12)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.grid(True, alpha=0.3)
+        ax.set_title("Score Distributions", fontsize=14, fontweight="bold")
+        ax.set_xlabel("Score", fontsize=12)
+        ax.set_ylabel("Density", fontsize=12)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         
-        # Save file
-        filename = f"{output_dir}/score_distributions_combined.png"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        self.apply_game_theme(fig, ax)
+        plt.tight_layout()
+        
+        filename = f"{output_dir}/score_distributions.png"
+        fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
         print(f"Saved: {filename}")
         
-        return plt.gcf()
+        return fig
     
-    def plot_max_tile_distributions_separate(self, output_dir=".", figsize=(8, 6)):
-        """Plot separate max tile distribution for each agent and save individual files."""
-        if not self.results:
-            print("No results to visualize")
-            return []
-        
-        figures = []
-        
-        for i, (agent_name, stats) in enumerate(self.results.items()):
-            fig, ax = plt.subplots(figsize=figsize)
-            
-            color = self.agent_colors[i % len(self.agent_colors)]
-            max_tiles = stats["max_tiles"]
-            unique_tiles = sorted(set(max_tiles))
-            counts = [max_tiles.count(tile) for tile in unique_tiles]
-            percentages = [count/len(max_tiles)*100 for count in counts]
-            
-            bars = ax.bar(range(len(unique_tiles)), percentages, color=color, alpha=0.7)
-            ax.set_title(f"{agent_name} - Max Tile Distribution\nMedian: {stats['median_max_tile']:.0f}", 
-                        fontsize=14, fontweight="bold")
-            ax.set_xlabel("Max Tile", fontsize=12)
-            ax.set_ylabel("Percentage (%)", fontsize=12)
-            ax.set_xticks(range(len(unique_tiles)))
-            ax.set_xticklabels(unique_tiles)
-            ax.grid(True, alpha=0.3, axis='y')
-            
-            # Add percentage labels on bars
-            for bar, pct in zip(bars, percentages):
-                height = bar.get_height()
-                if height > 5:  # Only show label if bar is tall enough
-                    ax.text(bar.get_x() + bar.get_width()/2., height/2,
-                           f'{pct:.0f}%', ha='center', va='center', fontsize=9)
-            
-            # Save individual file
-            safe_name = agent_name.replace(" ", "_").replace("/", "_")
-            filename = f"{output_dir}/max_tile_distribution_{safe_name}.png"
-            fig.savefig(filename, dpi=300, bbox_inches='tight')
-            print(f"Saved: {filename}")
-            
-            figures.append(fig)
-        
-        return figures
-    
-    def plot_max_tile_distributions_combined(self, output_dir=".", figsize=(12, 6)):
-        """Plot combined max tile distributions for all agents."""
+    def plot_max_tile_distributions(self, output_dir=".", figsize=None, max_tiles_to_show=10):
+        """Plot max tile distributions for all agents."""
         if not self.results:
             print("No results to visualize")
             return None
         
-        # Get all unique max tiles across all agents
+        if figsize is None:
+            figsize = self.standard_figsize
+        
+        # Get all max tiles across all agents and find the highest overall
         all_max_tiles = []
         for stats in self.results.values():
             all_max_tiles.extend(stats["max_tiles"])
-        unique_tiles = sorted(set(all_max_tiles))
         
-        # Create a dictionary of percentages for each agent
+        # Get the highest N unique tiles across all agents
+        unique_tiles = sorted(set(all_max_tiles), reverse=True)
+        highest_tiles = unique_tiles[:max_tiles_to_show]
+        selected_tiles = sorted(highest_tiles)
+        
         tile_percentages = {}
         for i, (agent_name, stats) in enumerate(self.results.items()):
             percentages = []
-            for tile in unique_tiles:
+            for tile in selected_tiles:
                 count = stats["max_tiles"].count(tile)
                 percentage = count / len(stats["max_tiles"]) * 100
                 percentages.append(percentage)
             tile_percentages[agent_name] = percentages
         
-        # Convert to DataFrame for plotting
-        df = pd.DataFrame(tile_percentages, index=unique_tiles)
+        df = pd.DataFrame(tile_percentages, index=selected_tiles)
+        fig, ax = plt.subplots(figsize=figsize)
         
-        # Plot with automatic color cycling
-        plt.figure(figsize=figsize)
-        ax = df.plot(kind='bar', width=0.8, colormap='Set1')
+        # Create color map for agents
+        agent_names = list(self.results.keys())
+        colors_map = {}
+        for i, agent_name in enumerate(agent_names):
+            colors_map[agent_name] = self.agent_colors[i % len(self.agent_colors)]
+        df.plot(kind='bar', width=0.8, ax=ax, alpha=0.8, color=colors_map, edgecolor='none')
         
-        plt.title('Combined Max Tile Distributions', fontsize=14, fontweight="bold")
-        plt.xlabel('Max Tile Value', fontsize=12)
-        plt.ylabel('Percentage of Games (%)', fontsize=12)
-        plt.legend(title='Agent', bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.grid(True, alpha=0.3, axis='y')
-        plt.xticks(rotation=45)
+        ax.set_title(f'Max Tile Distributions (Highest {len(selected_tiles)} Tiles)', fontsize=14, fontweight="bold")
+        ax.set_xlabel('Max Tile Value', fontsize=12)
+        ax.set_ylabel('Percentage of Games (%)', fontsize=12)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.tick_params(axis='x', rotation=45)
         
-        # Save file
-        filename = f"{output_dir}/max_tile_distributions_combined.png"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        self.apply_game_theme(fig, ax)
+        plt.tight_layout()
+        
+        filename = f"{output_dir}/max_tile_distributions.png"
+        fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
         print(f"Saved: {filename}")
         
-        return plt.gcf()
+        return fig
     
-    def plot_game_length_distributions_separate(self, output_dir=".", figsize=(8, 6)):
-        """Plot separate game length (moves) distribution for each agent and save individual files."""
-        if not self.results:
-            print("No results to visualize")
-            return []
-        
-        figures = []
-        
-        for i, (agent_name, stats) in enumerate(self.results.items()):
-            fig, ax = plt.subplots(figsize=figsize)
-            
-            color = self.agent_colors[i % len(self.agent_colors)]
-            moves = stats["moves_per_game"]
-            sns.histplot(moves, bins=20, alpha=0.7, color=color, ax=ax)
-            ax.set_title(f"{agent_name} - Game Length Distribution\nAvg: {stats['avg_moves']:.0f} moves", 
-                        fontsize=14, fontweight="bold")
-            ax.set_xlabel("Game Length (moves)", fontsize=12)
-            ax.set_ylabel("Frequency", fontsize=12)
-            ax.grid(True, alpha=0.3)
-            
-            # Save individual file
-            safe_name = agent_name.replace(" ", "_").replace("/", "_")
-            filename = f"{output_dir}/game_length_distribution_{safe_name}.png"
-            fig.savefig(filename, dpi=300, bbox_inches='tight')
-            print(f"Saved: {filename}")
-            
-            figures.append(fig)
-        
-        return figures
-    
-    def plot_game_length_distributions_combined(self, output_dir=".", figsize=(10, 6)):
-        """Plot combined game length distributions for all agents."""
+    def plot_move_distributions(self, output_dir=".", figsize=None):
+        """Plot move distributions for all agents."""
         if not self.results:
             print("No results to visualize")
             return None
         
-        plt.figure(figsize=figsize)
+        if figsize is None:
+            figsize = self.standard_figsize
+        
+        move_data = {}
+        move_names = ["Up", "Right", "Down", "Left"]
+        for agent_name, stats in self.results.items():
+            if "move_distribution" in stats:
+                move_counts = [
+                    stats["move_distribution"].get("0", 0),
+                    stats["move_distribution"].get("1", 0),
+                    stats["move_distribution"].get("2", 0),
+                    stats["move_distribution"].get("3", 0),
+                ]
+                total_moves = sum(move_counts)
+                if total_moves > 0:
+                    move_percentages = [count/total_moves * 100 for count in move_counts]
+                else:
+                    move_percentages = [0, 0, 0, 0]
+                
+                move_data[agent_name] = move_percentages
+        
+        if not move_data:
+            print("No move distribution data available for visualization")
+            return None
+        
+        df = pd.DataFrame(move_data, index=move_names)
+        fig, ax = plt.subplots(figsize=figsize)
+        
+        agent_names = list(move_data.keys())
+        colors_map = {}
+        for i, agent_name in enumerate(agent_names):
+            colors_map[agent_name] = self.agent_colors[i % len(self.agent_colors)]
+        
+        df.plot(kind='bar', width=0.8, ax=ax, alpha=0.8, color=colors_map, edgecolor='none')
+        ax.set_title('Move Distributions', fontsize=14, fontweight="bold")
+        ax.set_xlabel('Move Direction', fontsize=12)
+        ax.set_ylabel('Percentage of Moves (%)', fontsize=12)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.tick_params(axis='x', rotation=0)  # Keep move names horizontal
+        
+        self.apply_game_theme(fig, ax)
+        plt.tight_layout()
+        
+        filename = f"{output_dir}/move_distributions.png"
+        fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
+        print(f"Saved: {filename}")
+        
+        return fig
+    
+    def plot_game_length_distributions(self, output_dir=".", figsize=None):
+        """Plot game length distributions for all agents."""
+        if not self.results:
+            print("No results to visualize")
+            return None
+        
+        if figsize is None:
+            figsize = self.standard_figsize
+        
+        fig, ax = plt.subplots(figsize=figsize)
         
         for i, (agent_name, stats) in enumerate(self.results.items()):
             color = self.agent_colors[i % len(self.agent_colors)]
             sns.kdeplot(stats["moves_per_game"], 
                        label=f"{agent_name} (avg: {stats['avg_moves']:.0f})", 
-                       color=color, linewidth=2)
+                       color=color, linewidth=2, ax=ax)
         
-        plt.title("Combined Game Length Distributions", fontsize=14, fontweight="bold")
-        plt.xlabel("Game Length (moves)", fontsize=12)
-        plt.ylabel("Density", fontsize=12)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.grid(True, alpha=0.3)
+        ax.set_title("Game Length Distributions", fontsize=14, fontweight="bold")
+        ax.set_xlabel("Game Length (moves)", fontsize=12)
+        ax.set_ylabel("Density", fontsize=12)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         
-        # Save file
-        filename = f"{output_dir}/game_length_distributions_combined.png"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        self.apply_game_theme(fig, ax)
+        plt.tight_layout()
+        
+        filename = f"{output_dir}/game_length_distributions.png"
+        fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
         print(f"Saved: {filename}")
         
-        return plt.gcf()
+        return fig
     
-    def plot_win_rates(self, output_dir=".", figsize=(10, 6)):
+    def plot_win_rates(self, output_dir=".", figsize=None):
         """Plot win rates for all agents."""
         if not self.results:
             print("No results to visualize")
             return None
         
-        # Prepare data
+        if figsize is None:
+            figsize = self.standard_figsize
+        
         agents = []
         win_rates = []
         colors = []
-        
         for i, (agent_name, stats) in enumerate(self.results.items()):
             agents.append(agent_name)
             win_rates.append(stats["win_rate"])
             colors.append(self.agent_colors[i % len(self.agent_colors)])
         
-        # Create figure
-        plt.figure(figsize=figsize)
-        bars = plt.bar(agents, win_rates, color=colors, alpha=0.8)
+        fig, ax = plt.subplots(figsize=figsize)
+        bars = ax.bar(agents, win_rates, color=colors, alpha=0.8, edgecolor='none')
         
-        plt.title("Win Rate (% games with 2048+ tile)", fontsize=14, fontweight="bold")
-        plt.ylabel("Win Rate (%)", fontsize=12)
-        plt.xlabel("Agent", fontsize=12)
-        plt.ylim(0, max(win_rates) * 1.2 if win_rates else 100)
-        plt.grid(True, alpha=0.3, axis='y')
+        ax.set_title("Win Rate (% games with 2048+ tile)", fontsize=14, fontweight="bold")
+        ax.set_ylabel("Win Rate (%)", fontsize=12)
+        ax.set_xlabel("Agent", fontsize=12)
+        ax.set_ylim(0, max(win_rates) * 1.2 if win_rates else 100)
         
-        # Add labels on top of bars
         for bar, rate in zip(bars, win_rates):
             height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2., height + 1,
-                    f'{rate:.1f}%', ha='center', va='bottom', fontsize=10)
+            ax.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
+                   f'{rate:.1f}%', ha='center', va='bottom', fontsize=10, color=self.text_color)
         
-        # Rotate x-axis labels for better readability if needed
-        if len(agents) > 3:
-            plt.xticks(rotation=45, ha='right')
+        if len(agents) > 3 or any(len(agent) > 15 for agent in agents):
+            ax.set_xticklabels(agents, rotation=45, ha='right')
         
-        # Save file
+        self.apply_game_theme(fig, ax)
+        plt.tight_layout()
+        
         filename = f"{output_dir}/win_rates.png"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
         print(f"Saved: {filename}")
         
-        return plt.gcf()
+        return fig
     
-    def plot_efficiency(self, output_dir=".", figsize=(10, 6)):
+    def plot_efficiency(self, output_dir=".", figsize=None):
         """Plot efficiency (score per move) for all agents."""
         if not self.results:
             print("No results to visualize")
             return None
         
-        # Prepare data
+        if figsize is None:
+            figsize = self.standard_figsize
+        
         agents = []
         efficiencies = []
         colors = []
-        
         for i, (agent_name, stats) in enumerate(self.results.items()):
             agents.append(agent_name)
             efficiencies.append(stats["efficiency"])
             colors.append(self.agent_colors[i % len(self.agent_colors)])
         
-        # Create figure
-        plt.figure(figsize=figsize)
-        bars = plt.bar(agents, efficiencies, color=colors, alpha=0.8)
+        fig, ax = plt.subplots(figsize=figsize)
+        bars = ax.bar(agents, efficiencies, color=colors, alpha=0.8, edgecolor='none')
+        ax.set_title("Efficiency (Score per Move)", fontsize=14, fontweight="bold")
+        ax.set_ylabel("Efficiency (score/move)", fontsize=12)
+        ax.set_xlabel("Agent", fontsize=12)
+        ax.set_ylim(0, max(efficiencies) * 1.2 if efficiencies else 1)
         
-        plt.title("Efficiency (Score per Move)", fontsize=14, fontweight="bold")
-        plt.ylabel("Efficiency (score/move)", fontsize=12)
-        plt.xlabel("Agent", fontsize=12)
-        plt.ylim(0, max(efficiencies) * 1.2 if efficiencies else 1)
-        plt.grid(True, alpha=0.3, axis='y')
-        
-        # Add labels on top of bars
         for bar, eff in zip(bars, efficiencies):
             height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2., height + height*0.05,
-                    f'{eff:.2f}', ha='center', va='bottom', fontsize=10)
+            ax.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
+                   f'{eff:.2f}', ha='center', va='bottom', fontsize=10, color=self.text_color)
         
-        # Rotate x-axis labels for better readability if needed
-        if len(agents) > 3:
-            plt.xticks(rotation=45, ha='right')
+        if len(agents) > 3 or any(len(agent) > 15 for agent in agents):
+            ax.set_xticklabels(agents, rotation=45, ha='right')
         
-        # Save file
+        self.apply_game_theme(fig, ax)
+        plt.tight_layout()
+        
         filename = f"{output_dir}/efficiency.png"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
         print(f"Saved: {filename}")
         
-        return plt.gcf()
+        return fig
+    
+    def plot_score_vs_game_length(self, output_dir=".", figsize=None):
+        """Plot score vs game length scatter plot for all agents."""
+        if not self.results:
+            print("No results to visualize")
+            return None
+        
+        if figsize is None:
+            figsize = self.standard_figsize
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        for i, (agent_name, stats) in enumerate(self.results.items()):
+            color = self.agent_colors[i % len(self.agent_colors)]
+            scores = stats["scores"]
+            game_lengths = stats["moves_per_game"]
+            efficiency = stats.get("efficiency", 0.0)
+            
+            ax.scatter(game_lengths, scores, color=color, alpha=0.7, s=30, 
+                      label=f"{agent_name} (eff: {efficiency:.2f})", edgecolors='none')
+        
+        ax.set_title('Score vs Game Length', fontsize=14, fontweight="bold")
+        ax.set_xlabel('Game Length (moves)', fontsize=12)
+        ax.set_ylabel('Final Score', fontsize=12)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        self.apply_game_theme(fig, ax)
+        plt.tight_layout()
+        
+        filename = f"{output_dir}/score_vs_game_length.png"
+        fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
+        print(f"Saved: {filename}")
+        
+        return fig
+    
+    def apply_game_theme(self, fig, ax):
+        """Apply 2048 game theme to a matplotlib figure and axis."""
+        # Set figure and axis background colors
+        fig.patch.set_facecolor(self.bg_color)
+        ax.set_facecolor(self.bg_color)
+        
+        # Set text colors
+        ax.title.set_color(self.text_color)
+        ax.xaxis.label.set_color(self.text_color)
+        ax.yaxis.label.set_color(self.text_color)
+        ax.tick_params(colors=self.text_color)
+        
+        # Set grid color
+        ax.grid(True, alpha=0.3, color=self.highlight_color)
+        
+        # Set spine colors
+        for spine in ax.spines.values():
+            spine.set_color(self.highlight_color)
+            spine.set_alpha(0.7)
+        
+        # Set legend text color if legend exists
+        legend = ax.get_legend()
+        if legend:
+            legend.get_frame().set_facecolor(self.bg_color)
+            legend.get_frame().set_alpha(0.9)
+            legend.get_frame().set_edgecolor(self.highlight_color)
+            for text in legend.get_texts():
+                text.set_color(self.text_color)

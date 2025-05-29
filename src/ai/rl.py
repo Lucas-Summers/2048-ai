@@ -1,10 +1,12 @@
 import random
+import time
 from collections import deque, namedtuple
 from typing import Optional
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from .base import Agent
 
 # Transition function for RL
 Transition = namedtuple("Transition", [
@@ -61,9 +63,7 @@ def default_device(explicit: Optional[str] = None) -> torch.device:
         return torch.device("mps")
     return torch.device("cpu")
 
-class RLAgent:
-    """Deep Q‑Learning agent compatible with `AgentAnalyzer`."""
-
+class RLAgent(Agent):
     def __init__(
         self,
         name: str = "DQNAgent",
@@ -78,7 +78,7 @@ class RLAgent:
         device: Optional[str] = None,
         training: bool = False,
     ):
-        self.name = name
+        super().__init__(name)
         self.gamma = gamma
         self.epsilon_start = epsilon_start
         self.epsilon_end = epsilon_end
@@ -100,6 +100,13 @@ class RLAgent:
         self.criterion = nn.SmoothL1Loss()
         self.replay_buffer = ReplayBuffer(buffer_capacity)
 
+        # Stats tracking
+        self.stats = {
+            "search_iterations": 0,     # Q-value predictions made
+            "max_depth_reached": 1,     # Always 1 for RL (single-step lookahead)
+            "avg_reward": 0.0           # Average Q-value of chosen action
+        }
+
         # Save the constructor args
         self._init_kwargs = dict(
             name=name, lr=lr, gamma=gamma,
@@ -112,19 +119,40 @@ class RLAgent:
 
     def get_move(self, game):
         """Return an action (0–3) for the given *game* state."""
+        
+        # Reset stats for this move
+        self.stats.update({
+            "search_iterations": 0,
+            "max_depth_reached": 1,
+            "avg_reward": 0.0
+        })
+        
         state_vec = preprocess_grid(game.board.grid)
         valid_moves = game.get_available_moves()
 
+        if not valid_moves:
+            return -1
+
         # ε‑greedy selection
         eps = self._current_epsilon()
+        
         if random.random() < eps:
             action = random.choice(valid_moves)
+            chosen_q_value = 0.0  # No Q-value for random action
         else:
             q_values = self._predict_q(state_vec)
+            self.stats["search_iterations"] = 1  # One Q-value prediction made
+            
             mask = np.ones(4, dtype=bool)
             mask[valid_moves] = False
-            q_values[mask] = -np.inf
+            q_values[mask] = -np.inf  # Keep -inf for proper agent logic
             action = int(np.nanargmax(q_values))
+            chosen_q_value = q_values[action] if q_values[action] != -np.inf else 0.0
+
+        # Update stats
+        self.stats.update({
+            "avg_reward": chosen_q_value
+        })
 
         if not self.training:
             self._steps_done += 1
@@ -134,7 +162,6 @@ class RLAgent:
         self._pending_state = state_vec
         self._pending_action = action
         return action
-
 
     def remember_last(self, reward: float, next_board: np.ndarray, done: bool):
         """Store the latest transition and trigger a learning step."""
@@ -192,6 +219,7 @@ class RLAgent:
         nn.utils.clip_grad_norm_(self.policy_net.parameters(), 1.0)
         self.optimizer.step()
 
+
     def save_model(self, path: str):
         """Save the model to the specified path."""
         torch.save({
@@ -212,8 +240,11 @@ class RLAgent:
         agent._steps_done = checkpoint["steps_done"]
         return agent
 
-    def get_config(self):
-        return self._init_kwargs.copy()
-
     def __repr__(self):
         return f"<RLAgent {self.name} device={self.device} steps={self._steps_done} training={self.training}>"
+
+    def get_stats(self):
+        return self.stats.copy()
+
+    def get_config(self):
+        return self._init_kwargs.copy()

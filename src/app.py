@@ -3,22 +3,28 @@ from src.game.game import Game2048
 from src.ai.random import RandomAgent
 from src.ai.mcts import MctsAgent
 from src.ai.expectimax import ExpectimaxAgent
+from src.ai.rl import RLAgent
+from src.ai.greedy import GreedyAgent
 import os
 import importlib
+import time
 
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'templates'))
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
 app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 
-# Store game instances in a simple dictionary
 games = {}
 
-# Available AI agents
+# Standard thinking time for all agents (in seconds)
+THINKING_TIME = 0.5
+
 agents = {
     'random': RandomAgent(),
-    'mcts': MctsAgent(thinking_time=0.2, max_sim_depth=20, rollout_type="greedy", max_branching_factor=2),
-    'expectimax': ExpectimaxAgent(),
-    # 'rl': RLAgent(),
+    'greedy': GreedyAgent(tile_weight=1.0, score_weight=0.1),
+    'mcts': MctsAgent(thinking_time=THINKING_TIME, rollout_type="random"),
+    'hybrid': MctsAgent(thinking_time=THINKING_TIME, rollout_type="expectimax"),
+    'expect': ExpectimaxAgent(thinking_time=THINKING_TIME),
+    'rl': RLAgent(training=False),
 }
 
 def load_agent(agent_type):
@@ -26,7 +32,6 @@ def load_agent(agent_type):
         return agents[agent_type]
         
     try:
-        # Try to dynamically import the requested agent
         module_name = f"src.ai.{agent_type}_agent"
         class_name = f"{agent_type.capitalize()}Agent"
         module = importlib.import_module(module_name)
@@ -37,7 +42,7 @@ def load_agent(agent_type):
         return agent
     except (ImportError, AttributeError) as e:
         print(f"Agent '{agent_type}' could not be loaded: {e}")
-        return agents['random']
+        return agents['greedy']
 
 @app.route('/')
 def index():
@@ -75,14 +80,22 @@ def make_move():
 @app.route('/api/ai_move', methods=['POST'])
 def ai_move():
     game_id = request.json.get('game_id', 'default')
-    ai_type = request.json.get('ai_type', 'random')  # Default to random
+    ai_type = request.json.get('ai_type', 'greedy')  # Default to greedy
     
     game = games.get(game_id)
     if not game:
         return jsonify(error="Game not found"), 404
     
     agent = load_agent(ai_type)
+    
+    start_time = time.time()
     direction = agent.get_move(game)
+    agent_execution_time = time.time() - start_time
+    
+    # Standardize thinking time across all agents (especially for RL agent)
+    if agent_execution_time < THINKING_TIME:
+        time.sleep(THINKING_TIME - agent_execution_time)
+    total_thinking_time = time.time() - start_time
     
     if direction == -1:
         return jsonify(
@@ -92,15 +105,21 @@ def ai_move():
             score=int(game.score),
             highest_tile=int(game.board.get_max_tile()),
             agent_type=ai_type,
-            agent_stats=agent.get_stats() if hasattr(agent, 'get_stats') else {}
+            agent_stats=agent.get_stats() if hasattr(agent, 'get_stats') else {},
+            thinking_time=total_thinking_time
         )
     
     move_result = game.step(direction)
     result = sanitize_response(move_result, game)
+    
+    agent_stats = agent.get_stats() if hasattr(agent, 'get_stats') else {}
+    agent_stats['thinking_time'] = total_thinking_time
+    agent_stats['execution_time'] = agent_execution_time
+    
     result.update({
         'direction': int(direction),
         'agent_type': ai_type,
-        'agent_stats': agent.get_stats() if hasattr(agent, 'get_stats') else {}
+        'agent_stats': agent_stats
     })
     
     return jsonify(result)
@@ -127,10 +146,15 @@ def reset_game():
         highest_tile=int(game.board.get_max_tile())
     )
 
+def safe_int(value):
+    """Safely convert NumPy types to Python integers."""
+    if hasattr(value, 'item'):
+        return int(value.item())
+    else:
+        return int(value)
+
 def sanitize_response(move_result, game):
-    """
-    Convert any NumPy types to native Python types for JSON serialization.
-    """
+    """Convert any NumPy types to native Python types for JSON serialization."""
     result = {
         'board': game.board.grid.tolist(),
         'score': int(game.score),
@@ -143,24 +167,22 @@ def sanitize_response(move_result, game):
     movements = []
     for move in move_result.get('movements', []):
         movements.append({
-            'from': [int(move['from'][0]), int(move['from'][1])],
-            'to': [int(move['to'][0]), int(move['to'][1])],
-            'value': int(move['value'])
+            'from': [safe_int(move['from'][0]), safe_int(move['from'][1])],
+            'to': [safe_int(move['to'][0]), safe_int(move['to'][1])],
+            'value': safe_int(move['value'])
         })
     result['movements'] = movements
     
     # Convert merges
     merges = []
     for merge in move_result.get('merges', []):
-        # Handle different merge formats (with or without merged_from)
         merged_from = []
-        if 'merged_from' in merge:
-            for pos in merge['merged_from']:
-                merged_from.append([int(pos[0]), int(pos[1])])
+        for pos in merge['merged_from']:
+            merged_from.append([safe_int(pos[0]), safe_int(pos[1])])
         
         merges.append({
-            'position': [int(merge['position'][0]), int(merge['position'][1])],
-            'value': int(merge['value']),
+            'position': [safe_int(merge['position'][0]), safe_int(merge['position'][1])],
+            'value': safe_int(merge['value']),
             'merged_from': merged_from if merged_from else None
         })
     result['merges'] = merges
@@ -169,17 +191,17 @@ def sanitize_response(move_result, game):
     new_tile = move_result.get('new_tile')
     if new_tile:
         result['new_tile'] = {
-            'position': [int(new_tile['position'][0]), int(new_tile['position'][1])],
-            'value': int(new_tile['value'])
+            'position': [safe_int(new_tile['position'][0]), safe_int(new_tile['position'][1])],
+            'value': safe_int(new_tile['value'])
         }
     else:
         result['new_tile'] = None
     
-    # additional info
+    # Additional info
     if 'score_gained' in move_result:
-        result['score_gained'] = int(move_result['score_gained'])
+        result['score_gained'] = safe_int(move_result['score_gained'])
     if 'total_score' in move_result:
-        result['total_score'] = int(move_result['total_score'])
+        result['total_score'] = safe_int(move_result['total_score'])
     
     return result
 

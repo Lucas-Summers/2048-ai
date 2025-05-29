@@ -46,7 +46,7 @@ class MonotonicityHeuristic(Heuristic):
 
 
 class SmoothnessHeuristic(Heuristic):
-    """Evaluates smoothness - differences between adjacent tiles."""
+    """Evaluates smoothness: difference between adjacent tiles."""
     
     def __init__(self, name="Smoothness"):
         super().__init__(name)
@@ -76,7 +76,7 @@ class MaxValueHeuristic(Heuristic):
         super().__init__(name)
         
     def evaluate(self, board):
-        return np.max(board)
+        return np.log2(np.max(board))
 
 
 class CornerMaxHeuristic(Heuristic):

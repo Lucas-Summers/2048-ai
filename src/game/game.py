@@ -2,12 +2,7 @@ import numpy as np
 from .board import Board
 
 class Game2048:
-    """
-    Represents a game of 2048, managing the board state, score, and game logic.
-    """
-    
     def __init__(self):
-        """Initialize a new 2048 game."""
         self.board = Board()
         self.score = 0
         self.moves = 0
@@ -21,26 +16,13 @@ class Game2048:
         self.game_over = False
     
     def step(self, direction):
-        """
-        Make a move in the specified direction.
-        
-        Args:
-            direction: Direction to move (0:up, 1:right, 2:down, 3:left)
-            
-        Returns:
-            dict: Information about the move result
-        """
-        # Make the move and get detailed information
+        """Make a move in the specified direction (0:up, 1:right, 2:down, 3:left)."""
         move_info = self.board.move(direction, return_info=True)
-        
         if not move_info['moved']:
             return move_info
         
-        # Update score and moves
         self.score += move_info['score']
         self.moves += 1
-        
-        # Check for game over
         self.game_over = self.board.is_game_over()
         
         # Add extra game info to the result
@@ -74,12 +56,7 @@ class Game2048:
         return game_copy
     
     def get_state(self):
-        """
-        Get a serializable representation of the game state.
-        
-        Returns:
-            dict: Game state as a dictionary
-        """
+        """Get a serializable representation of the game state."""
         return {
             'board': self.board.grid.tolist(),
             'score': self.score,
@@ -88,12 +65,7 @@ class Game2048:
         }
     
     def set_state(self, state):
-        """
-        Restore the game from a serialized state.
-        
-        Args:
-            state: Dictionary containing game state
-        """
+        """Restore the game from a serialized state."""
         self.board.grid = np.array(state['board'])
         self.score = state['score']
         self.moves = state['moves']

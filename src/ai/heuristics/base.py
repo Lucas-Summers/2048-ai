@@ -1,4 +1,3 @@
-# src/ai/heuristics/heuristic_base.py
 class Heuristic:
     """Base class for all heuristic functions."""
     
@@ -7,15 +6,7 @@ class Heuristic:
         self.weight = 1.0
         
     def evaluate(self, board):
-        """
-        Evaluate board state and return a score.
-        
-        Args:
-            board: Current board state
-            
-        Returns:
-            score: Numerical score representing quality of the board
-        """
+        """Evaluate board state and return a score."""
         raise NotImplementedError("Subclasses must implement evaluate()")
         
     def __call__(self, board):
@@ -28,7 +19,7 @@ class CompositeHeuristic(Heuristic):
     
     def __init__(self, name="Composite"):
         super().__init__(name)
-        self.heuristics = []  # List of (heuristic, weight) tuples
+        self.heuristics = []
     
     def add_heuristic(self, heuristic, weight=1.0):
         """Add a heuristic with an optional weight."""
