@@ -65,7 +65,7 @@ if __name__ == "__main__":
     output_dir = "../../results"
     num_processes = None  # Auto-detect
     batch_size = 10
-    games_per_thread = 2
+    games_per_thread = 10
     
     os.makedirs(output_dir, exist_ok=True)
     results_file = f"{output_dir}/agent_results.json"
