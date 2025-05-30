@@ -274,8 +274,6 @@ class ParallelAgentAnalyzer:
         with open(filename, 'w') as f:
             json.dump(serializable_results, f, indent=2)
         print(f"Results saved to {filename}")
-        print(f"  Format: JSON with raw data + computed statistics")
-        print(f"  Compatible with: AgentVisualizer, existing analysis tools")
     
     def _convert_numpy_types(self, obj):
         """Convert numpy types to native Python types for JSON serialization."""
