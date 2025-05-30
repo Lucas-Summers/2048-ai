@@ -95,7 +95,6 @@ if __name__ == "__main__":
         print(f"  Processes: {num_processes}")
         print(f"  Batch size: {batch_size}")
         print(f"  Games per thread: {games_per_thread}")
-        print(f"  2-level parallelism: Enabled")
         max_concurrent = num_processes * games_per_thread
         print(f"  Max concurrent games: {max_concurrent}")
         
@@ -152,4 +151,3 @@ if __name__ == "__main__":
 
     print("\nAnalysis complete!")
     print(f"All files saved in directory: {output_dir}/")
-    print(f"Results saved as JSON: {results_file}")
