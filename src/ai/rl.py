@@ -229,6 +229,11 @@ class RLAgent(Agent):
             "init_kwargs": self._init_kwargs,
         }, path)
 
+    def update_learning_rate(self, new_lr):
+        """Update the learning rate of the optimizer."""
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = new_lr
+
     @classmethod
     def load_model(cls, path: str, **overrides):
         checkpoint = torch.load(path, map_location="cpu")
