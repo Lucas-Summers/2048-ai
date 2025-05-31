@@ -52,11 +52,12 @@ class SimpleMCTSNode:
 
 class MctsAgent(Agent):
     def __init__(self, name="MCTS", thinking_time=0.5, exploration_weight=1.414, 
-                 rollout_type="expectimax"):
+                 rollout_type="expectimax", rollout_agent=None):
         super().__init__(name)
         self.thinking_time = thinking_time
         self.exploration_weight = exploration_weight
-        self.rollout_type = rollout_type  # "random" or "expectimax"
+        self.rollout_type = rollout_type  # "random", "expectimax", or "rl"
+        self.rollout_agent = rollout_agent
         
         # Composite heuristic for evaluation
         self.heuristic = CompositeHeuristic()
@@ -147,7 +148,7 @@ class MctsAgent(Agent):
         return child
     
     def _simulate(self, node):
-        """Simulation phase: use expectimax (hybrid model) or random rollout."""
+        """Simulation phase: use expectimax/RL (hybrid model), or random rollout"""
         
         if self.rollout_type == "expectimax":
             # Use expectimax evaluation with fixed depth of 2
@@ -174,8 +175,11 @@ class MctsAgent(Agent):
             
             final_score = self.heuristic.evaluate(sim_game.board.grid)
         
+        elif self.rollout_type == "rl" and self.rollout_agent is not None:
+            final_score = self.rl_rollout(node.game_state)
+        
         else:
-            raise ValueError(f"Invalid rollout_type: {self.rollout_type}. Must be 'random' or 'expectimax'")
+            raise ValueError(f"Invalid rollout_type: {self.rollout_type}. Must be 'random', 'expectimax', or 'rl' with a valid rollout_agent.")
         
         return final_score
     
@@ -209,4 +213,16 @@ class MctsAgent(Agent):
             'thinking_time': self.thinking_time,
             'exploration_weight': self.exploration_weight,
             'rollout_type': self.rollout_type
-        } 
+        }
+
+    def rl_rollout(self, game):
+        """Simulate a rollout using the RL agent's policy until game over."""
+        sim_game = game.copy()
+        steps = 0
+        max_steps = 50  # Prevent infinite games
+        while not sim_game.is_game_over() and steps < max_steps:
+            move = self.rollout_agent.get_move(sim_game)
+            sim_game.step(move)
+            steps += 1
+        return self.heuristic.evaluate(sim_game.board.grid) 
+    

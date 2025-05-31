@@ -39,9 +39,13 @@ def create_agent(agent_type, thinking_time=0.5):
             name="Expectimax",
             thinking_time=thinking_time
         ),
-        'rl': lambda: RLAgent(
-            name="RL",
-            training=False
+        'rl': lambda: RLAgent.load_model("src/utils/runs/2025-05-29_16-04-01/best_9095.pt", training=False, name="RL"),
+        'mcts_rl': lambda: MctsAgent(
+            name="MCTS_RL",
+            thinking_time=thinking_time,
+            exploration_weight=1.414,
+            rollout_type="rl",
+            rollout_agent=RLAgent.load_model("src/utils/runs/2025-05-29_16-04-01/best_9095.pt", training=False, name="RL")
         )
     }
     
@@ -84,7 +88,7 @@ def print_results(stats, total_time, num_games):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test a single 2048 AI agent")
     parser.add_argument("agent_type", 
-                       choices=['random', 'greedy', 'mcts_random', 'mcts_expectimax', 'expectimax', 'rl'],
+                       choices=['random', 'greedy', 'mcts_random', 'mcts_expectimax', 'expectimax', 'rl', 'mcts_rl'],
                        help="Type of agent to test")
     parser.add_argument("-n", "--num_games", type=int, default=100,
                        help="Number of games to simulate (default: 100)")
@@ -92,11 +96,11 @@ if __name__ == "__main__":
                        help="Thinking time per move in seconds (default: 0.5)")
     parser.add_argument("-o", "--output_dir", default="../../results",
                        help="Output directory for results (default: ../../results)")
-    parser.add_argument("--processes", type=int, default=None,
+    parser.add_argument("-p", "--processes", type=int, default=None,
                        help="Number of processes (default: auto-detect)")
-    parser.add_argument("--batch_size", type=int, default=10,
+    parser.add_argument("-b", "--batch_size", type=int, default=10,
                        help="Batch size (default: 10)")
-    parser.add_argument("--threads_per_batch", type=int, default=2,
+    parser.add_argument("-s", "--threads_per_batch", type=int, default=2,
                        help="Threads per batch (default: 2)")
     
     args = parser.parse_args()
