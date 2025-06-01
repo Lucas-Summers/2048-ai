@@ -5,6 +5,7 @@ from .base import Agent
 from .heuristics.base import CompositeHeuristic
 from .heuristics.core import EmptyTilesHeuristic, MonotonicityHeuristic, SmoothnessHeuristic, CornerMaxHeuristic, MergePotentialHeuristic, MaxValueHeuristic
 from .expectimax import ExpectimaxAgent
+from .rl import RLAgent
 
 class SimpleMCTSNode:
     def __init__(self, game_state, parent=None, move=None):
@@ -52,12 +53,13 @@ class SimpleMCTSNode:
 
 class MctsAgent(Agent):
     def __init__(self, name="MCTS", thinking_time=0.5, exploration_weight=1.414, 
-                 rollout_type="expectimax", rollout_agent=None):
+                 rollout_type="expectimax", rl_model_path=None):
         super().__init__(name)
         self.thinking_time = thinking_time
         self.exploration_weight = exploration_weight
         self.rollout_type = rollout_type  # "random", "expectimax", or "rl"
-        self.rollout_agent = rollout_agent
+        self.rl_model_path = rl_model_path
+        self.rollout_agent = None
         
         # Composite heuristic for evaluation
         self.heuristic = CompositeHeuristic()
@@ -72,6 +74,11 @@ class MctsAgent(Agent):
             self.expectimax_agent = ExpectimaxAgent(thinking_time=999.0)  # Effectively disable time limits
         else:
             self.expectimax_agent = None
+
+        if self.rollout_type == "rl":
+            if not self.rl_model_path:
+                raise ValueError("rl_model_path must be provided for RL rollout.")
+            self.rollout_agent = RLAgent.load_model(self.rl_model_path, training=False, name="RL_Rollout")
 
         self.stats = {
             "search_iterations": 0,     # MCTS iterations
@@ -209,11 +216,14 @@ class MctsAgent(Agent):
         return self.stats.copy()
     
     def get_config(self):
-        return {
+        config = {
             'thinking_time': self.thinking_time,
             'exploration_weight': self.exploration_weight,
             'rollout_type': self.rollout_type
         }
+        if self.rollout_type == "rl":
+            config['rl_model_path'] = self.rl_model_path
+        return config
 
     def rl_rollout(self, game):
         """Simulate a rollout using the RL agent's policy until game over."""

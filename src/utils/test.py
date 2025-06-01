@@ -16,6 +16,8 @@ from ai.random import RandomAgent
 
 def create_agent(agent_type, thinking_time=0.5):
     """Create a single agent of the specified type."""
+    RL_MODEL_PATH = "src/utils/runs/2025-05-31_15-39-49/best_2842.pt"
+
     agent_configs = {
         'random': lambda: RandomAgent(name="Random"),
         'greedy': lambda: GreedyAgent(
@@ -39,13 +41,13 @@ def create_agent(agent_type, thinking_time=0.5):
             name="Expectimax",
             thinking_time=thinking_time
         ),
-        'rl': lambda: RLAgent.load_model("src/utils/runs/2025-05-29_16-04-01/best_9095.pt", training=False, name="RL"),
+        'rl': lambda: RLAgent.load_model(RL_MODEL_PATH, training=False, name="RL"),
         'mcts_rl': lambda: MctsAgent(
             name="MCTS_RL",
             thinking_time=thinking_time,
             exploration_weight=1.414,
             rollout_type="rl",
-            rollout_agent=RLAgent.load_model("src/utils/runs/2025-05-29_16-04-01/best_9095.pt", training=False, name="RL")
+            rl_model_path=RL_MODEL_PATH
         )
     }
     
