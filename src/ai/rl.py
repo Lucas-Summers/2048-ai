@@ -54,12 +54,20 @@ def preprocess_grid(grid: np.ndarray) -> np.ndarray:
 
 
 def default_device(explicit: Optional[str] = None) -> torch.device:
-    """Select the best available device: CUDA (NVIDIA GPU) -> MPS (Apple GPU) -> CPU."""
+    """Select the best available device safely."""
     if explicit is not None:
-        return torch.device(explicit)
+        try:
+            device = torch.device(explicit)
+            if device.type == "mps" and not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
+                return torch.device("cpu")
+            if device.type == "cuda" and not torch.cuda.is_available():
+                return torch.device("cpu")
+            return device
+        except Exception:
+            return torch.device("cpu")
     if torch.cuda.is_available():
         return torch.device("cuda")
-    if torch.backends.mps.is_available():
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
 
