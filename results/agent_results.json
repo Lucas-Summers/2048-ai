@@ -2119,11 +2119,11 @@
       "3": 10434
     },
     "win_rate": 1.0,
-    "avg_score": 8768.6,
-    "avg_moves": 559.14,
-    "avg_game_duration": 3965.6363572740556,
-    "median_max_tile": 512.0,
-    "absolute_max_tile": 2048,
+    "avg_score": 17536.6,
+    "avg_moves": 1118.14,
+    "avg_game_duration": 7923.6363572740556,
+    "median_max_tile": 1024.0,
+    "absolute_max_tile": 4096,
     "efficiency": 15.682297814500842
   },
   "RL": {
