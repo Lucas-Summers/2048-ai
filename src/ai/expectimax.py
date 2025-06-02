@@ -1,30 +1,31 @@
 import time
 from .base import Agent
 from .heuristics.base import CompositeHeuristic
-from .heuristics.core import EmptyTilesHeuristic, MonotonicityHeuristic, SmoothnessHeuristic, CornerMaxHeuristic, MergePotentialHeuristic, MaxValueHeuristic
+from .heuristics.core import PositionalEmptyTilesHeuristic, MonotonicityHeuristic, SmoothnessHeuristic, CornerMaxHeuristic, MergePotentialHeuristic, MaxValueHeuristic, QualityStabilityHeuristic
 
 class ExpectimaxAgent(Agent):
     def __init__(self, name="Expectimax", thinking_time=0.5):
         super().__init__(name)
         self.thinking_time = thinking_time
         
-        # Create composite heuristic for evaluation
+        # Composite heuristic for evaluation
         self.heuristic = CompositeHeuristic()
-        self.heuristic.add_heuristic(EmptyTilesHeuristic(), 3.0)
-        self.heuristic.add_heuristic(MonotonicityHeuristic(), 1.5) 
         self.heuristic.add_heuristic(CornerMaxHeuristic(), 5.0)
-        self.heuristic.add_heuristic(SmoothnessHeuristic(), 2.0)
+        self.heuristic.add_heuristic(MonotonicityHeuristic(), 3.0)
+        self.heuristic.add_heuristic(PositionalEmptyTilesHeuristic(), 2.5)
         self.heuristic.add_heuristic(MergePotentialHeuristic(), 2.5)
-        self.heuristic.add_heuristic(MaxValueHeuristic(), 3.0)
-
+        self.heuristic.add_heuristic(QualityStabilityHeuristic(), 2.0)
+        self.heuristic.add_heuristic(SmoothnessHeuristic(), 1.5)
+        self.heuristic.add_heuristic(MaxValueHeuristic(), 1.0)
+        
         self.stats = {
-            "search_iterations": 0,     # Total move evaluations performed
+            "search_iterations": 0,     # Move evaluations performed
             "max_depth_reached": 0,     # Maximum search depth reached
-            "avg_reward": 0.0           # Average heuristic value of evaluated positions
+            "avg_reward": 0.0           # Average quality of evaluated positions
         }
-    
+
     def get_move(self, game):
-        """Returns the best move using Expectimax with progressive deepening."""
+        """Returns the best move using Expectimax with quality loss minimization."""
         
         # Reset stats each move
         self.stats = {
@@ -39,108 +40,156 @@ class ExpectimaxAgent(Agent):
         if len(available_moves) == 1:
             return available_moves[0]
         
+        original_quality = self.heuristic.evaluate(game.board.grid)
+        start_time = time.time()
+        
+        best_move = None
+        best_quality_loss = float('inf')
+        best_expected_quality = float('-inf')
+        depth = 1
         total_evaluations = 0
         total_reward = 0.0
-        start_time = time.time()
-        best_move = None
-        depth = 1
+        
         while time.time() - start_time < self.thinking_time:
-            current_best_move = None
-            current_best_score = float('-inf')
             depth_completed = True
             
             for move in available_moves:
-                # Check if we still have time for this move
                 if time.time() - start_time >= self.thinking_time:
                     depth_completed = False
                     break
-                
+                    
                 next_state = game.copy()
                 next_state.step(move)
                 
-                score = self._expectimax(next_state, depth - 1, False, start_time)
+                result = self._analyze_move_quality(next_state, depth-1, original_quality, start_time)
                 
                 total_evaluations += 1
-                total_reward += score
+                total_reward += result['expected_quality']
                 self.stats["search_iterations"] += 1
                 
-                if score > current_best_score:
-                    current_best_score = score
-                    current_best_move = move
+                # minimize the quality loss first
+                if (result['quality_loss'] < best_quality_loss or 
+                    (result['quality_loss'] == best_quality_loss and 
+                     result['expected_quality'] > best_expected_quality)):
+                    
+                    best_quality_loss = result['quality_loss']
+                    best_expected_quality = result['expected_quality']
+                    best_move = move
             
             if not depth_completed:
                 break
                 
-            if depth_completed and current_best_move is not None:
-                best_move = current_best_move
-            
             depth += 1
-            
+        
         if total_evaluations > 0:
             self.stats["avg_reward"] = total_reward / total_evaluations
-            
+        
         return best_move if best_move is not None else available_moves[0]
 
-    def _expectimax(self, game, depth, is_max_player, start_time):
-        """Complete Expectimax search with time checks."""
+    def _get_strategic_empty_cells(self, board):
+        """Only test tile spawns adjacent to existing tiles."""
+        strategic_cells = []
+        directions = [(0,1), (1,0), (0,-1), (-1,0)]
         
-        # Time check before any evaluation
+        for i in range(4):
+            for j in range(4):
+                if board[i,j] == 0:  # Empty cell
+                    # Check if adjacent to any tile
+                    has_adjacent_tile = False
+                    for di, dj in directions:
+                        ni, nj = i + di, j + dj
+                        if 0 <= ni < 4 and 0 <= nj < 4:
+                            if board[ni,nj] != 0:
+                                has_adjacent_tile = True
+                                break
+                    
+                    if has_adjacent_tile:
+                        strategic_cells.append((i, j))
+        
+        # if no strategic cells, use all empty cells
+        if not strategic_cells:
+            for i in range(4):
+                for j in range(4):
+                    if board[i,j] == 0:
+                        strategic_cells.append((i, j))
+        
+        return strategic_cells
+
+    def _analyze_move_quality(self, game, depth, original_quality, start_time):
+        """Move quality analysis with worst-case tracking."""
+        if time.time() - start_time >= self.thinking_time or depth == 0:
+            current_quality = self.heuristic.evaluate(game.board.grid)
+            return {
+                'expected_quality': current_quality,
+                'quality_loss': max(0, original_quality - current_quality)
+            }
+        
+        empty_cells = self._get_strategic_empty_cells(game.board.grid)
+        if not empty_cells:
+            current_quality = self.heuristic.evaluate(game.board.grid)
+            return {
+                'expected_quality': current_quality,
+                'quality_loss': max(0, original_quality - current_quality)
+            }
+        
+        total_expected_quality = 0
+        worst_quality = float('inf')
+        for (i, j) in empty_cells:
+            for tile_value, probability in [(2, 0.9), (4, 0.1)]:
+                next_game = game.copy()
+                next_game.board.grid[i,j] = tile_value
+                
+                sub_quality = self._expectimax(next_game, depth-1, True, start_time)
+                total_expected_quality += sub_quality * probability
+                worst_quality = min(worst_quality, sub_quality)
+        
+        expected_quality = total_expected_quality / len(empty_cells)
+        # Use worst case for quality loss calculation
+        quality_loss = max(0, original_quality - worst_quality)
+        
+        return {
+            'expected_quality': expected_quality,
+            'quality_loss': quality_loss
+        }
+
+    def _expectimax(self, game, depth, is_max_player, start_time):
+        """Standard expectimax with pruning optimizations."""
         if time.time() - start_time >= self.thinking_time:
             return self.heuristic.evaluate(game.board.grid)
             
-        # Base cases
         if depth == 0 or game.is_game_over():
             return self.heuristic.evaluate(game.board.grid)
-        
+
         self.stats["max_depth_reached"] = max(self.stats["max_depth_reached"], depth)
 
         if is_max_player:
-            # Max node: try all valid moves
             best_value = float('-inf')
-            moves = game.get_available_moves()
-            
-            for move in moves:
-                # Time check before processing each move
-                if time.time() - start_time >= self.thinking_time:
-                    break
+            for move in game.get_available_moves():
                 next_state = game.copy()
                 next_state.step(move)
-                value = self._expectimax(next_state, depth - 1, False, start_time)
+                value = self._expectimax(next_state, depth-1, False, start_time)
                 best_value = max(best_value, value)
-            
             return best_value
-
         else:
-            # Chance node: evaluate all empty cells
-            empty_cells = []
-            for i in range(game.board.size):
-                for j in range(game.board.size):
-                    if game.board.grid[i,j] == 0:
-                        empty_cells.append((i,j))
-
-            if len(empty_cells) == 0:
+            # Use strategic empty cells instead of all empty cells
+            empty_cells = self._get_strategic_empty_cells(game.board.grid)
+            if not empty_cells:
                 return self.heuristic.evaluate(game.board.grid)
 
             expected_value = 0
             for (i, j) in empty_cells:
-                # Time check before processing each empty cell
-                if time.time() - start_time >= self.thinking_time:
-                    break
-                    
                 for tile_value, probability in [(2, 0.9), (4, 0.1)]:
                     next_game = game.copy()
                     next_game.board.grid[i,j] = tile_value
-                    value = self._expectimax(next_game, depth - 1, True, start_time)
+                    value = self._expectimax(next_game, depth-1, True, start_time)
                     expected_value += value * probability
                     
-            # Average across all empty positions
-            expected_value /= len(empty_cells)
-            return expected_value
-
+            return expected_value / len(empty_cells)
+    
     def get_stats(self):
         return self.stats.copy()
     
     def get_config(self):
         return {
-            'thinking_time': self.thinking_time,
-        } 
+            'thinking_time': self.thinking_time
+        }

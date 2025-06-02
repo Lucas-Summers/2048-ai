@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import sys
 import os
 import time
+import argparse
 from pathlib import Path
 from multiprocessing import cpu_count
 
@@ -31,21 +32,21 @@ def create_test_agents(thinking_time=0.5):
     )
     agents.append(greedy_agent)
 
-    mcts_random = MctsAgent(
-        name="MCTS_Random", 
+    mcts = MctsAgent(
+        name="MCTS", 
         thinking_time=thinking_time,
         exploration_weight=1.414,
         rollout_type="random"
     )
-    agents.append(mcts_random)
+    agents.append(mcts)
     
-    mcts_expectimax = MctsAgent(
-        name="MCTS_Expectimax",
+    hybrid_expectimax = MctsAgent(
+        name="Hybrid (Expectimax)",
         thinking_time=thinking_time,
         exploration_weight=1.414,
         rollout_type="expectimax"
     )
-    agents.append(mcts_expectimax)
+    agents.append(hybrid_expectimax)
     
     expectimax_agent = ExpectimaxAgent(
         name="Expectimax",
@@ -69,15 +70,38 @@ def create_test_agents(thinking_time=0.5):
     return agents
 
 if __name__ == "__main__":
-    thinking_time = 0.5
-    num_games = 100
-    output_dir = "../../results"
-    num_processes = None  # Auto-detect
-    batch_size = 10
-    games_per_thread = 10
+    parser = argparse.ArgumentParser(description="Compare multiple 2048 AI agents")
+    parser.add_argument("-n", "--num_games", type=int, default=100,
+                       help="Number of games to simulate per agent (default: 100)")
+    parser.add_argument("-t", "--thinking_time", type=float, default=0.5,
+                       help="Thinking time per move in seconds (default: 0.5)")
+    parser.add_argument("-o", "--output_dir", default="../../results",
+                       help="Output directory for results (default: ../../results)")
+    parser.add_argument("--processes", type=int, default=None,
+                       help="Number of processes (default: auto-detect)")
+    parser.add_argument("--batch_size", type=int, default=10,
+                       help="Batch size (default: 10)")
+    parser.add_argument("--threads_per_batch", type=int, default=2,
+                       help="Threads per batch (default: 2)")
+    parser.add_argument("--skip_existing", action="store_true",
+                       help="Skip simulation if results file already exists")
+    
+    args = parser.parse_args()
+    
+    thinking_time = args.thinking_time
+    num_games = args.num_games
+    output_dir = args.output_dir
+    num_processes = args.processes
+    batch_size = args.batch_size
+    games_per_thread = args.threads_per_batch
     
     os.makedirs(output_dir, exist_ok=True)
     results_file = f"{output_dir}/agent_results.json"
+    
+    if os.path.exists(results_file) and args.skip_existing:
+        print(f"Results file already exists: {results_file}")
+        print("Use --skip_existing=false to overwrite or delete the file manually.")
+        sys.exit(0)
     
     if os.path.exists(results_file):
         print(f"Loading existing results from {results_file}...")
@@ -89,13 +113,21 @@ if __name__ == "__main__":
         for agent_name, metrics in comparison_data.items():
             print(f"\n{agent_name}:")
             print(f"  Average Score: {metrics['Avg Score']:.2f}")
+            print(f"  Min Score: {metrics['Min Score']:,.0f}")
+            print(f"  Max Score: {metrics['Max Score']:,.0f}")
             print(f"  Win Rate: {metrics['Win Rate (%)']:.2f}%")
             print(f"  Average Moves: {metrics['Avg Moves']:.2f}")
             print(f"  Efficiency: {metrics['Efficiency (score/move)']:.3f}")
             print(f"  Median Max Tile: {metrics['Median Max Tile']:.0f}")
+            if 'Absolute Max Tile' in metrics:
+                print(f"  Absolute Max Tile: {metrics['Absolute Max Tile']:.0f}")
     
     else:
         print("No existing results found. Running simulations...")
+        print(f"Configuration:")
+        print(f"  Games per agent: {num_games}")
+        print(f"  Thinking time: {thinking_time}s")
+        print(f"  Output directory: {output_dir}")
         
         if num_processes is None:
             num_processes = max(1, cpu_count() - 1)
@@ -113,7 +145,7 @@ if __name__ == "__main__":
             games_per_thread=games_per_thread
         )
         
-        print("Starting simulations...")
+        print("\nStarting simulations...")
         agents = create_test_agents(thinking_time=thinking_time)
         start_time = time.time()
         analyzer.compare_agents(
@@ -134,6 +166,8 @@ if __name__ == "__main__":
         for agent_name, metrics in comparison_data.items():
             print(f"\n{agent_name}:")
             print(f"  Average Score: {metrics['avg_score']:.2f}")
+            print(f"  Min Score: {metrics['min_score']:,.0f}")
+            print(f"  Max Score: {metrics['max_score']:,.0f}")
             print(f"  Win Rate: {metrics['win_rate']:.2f}%")
             print(f"  Average Moves: {metrics['avg_moves']:.2f}")
             print(f"  Efficiency: {metrics['efficiency']:.3f}")
