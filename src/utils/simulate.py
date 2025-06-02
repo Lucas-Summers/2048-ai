@@ -69,6 +69,18 @@ def create_test_agents(thinking_time=0.5):
     
     return agents
 
+def get_metric(metrics, *keys, default='N/A'):
+    for key in keys:
+        if key in metrics:
+            return metrics[key]
+    return default
+
+def safe_fmt(val, fmt):
+    try:
+        return format(val, fmt)
+    except (ValueError, TypeError):
+        return str(val)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare multiple 2048 AI agents")
     parser.add_argument("-n", "--num_games", type=int, default=100,
@@ -112,15 +124,15 @@ if __name__ == "__main__":
         print("\nAgent Performance Results:")
         for agent_name, metrics in comparison_data.items():
             print(f"\n{agent_name}:")
-            print(f"  Average Score: {metrics['Avg Score']:.2f}")
-            print(f"  Min Score: {metrics['Min Score']:,.0f}")
-            print(f"  Max Score: {metrics['Max Score']:,.0f}")
-            print(f"  Win Rate: {metrics['Win Rate (%)']:.2f}%")
-            print(f"  Average Moves: {metrics['Avg Moves']:.2f}")
-            print(f"  Efficiency: {metrics['Efficiency (score/move)']:.3f}")
-            print(f"  Median Max Tile: {metrics['Median Max Tile']:.0f}")
-            if 'Absolute Max Tile' in metrics:
-                print(f"  Absolute Max Tile: {metrics['Absolute Max Tile']:.0f}")
+            print(f"  Average Score: {safe_fmt(get_metric(metrics, 'Avg Score', 'avg_score'), '.2f')}")
+            print(f"  Min Score: {safe_fmt(get_metric(metrics, 'Min Score', 'min_score'), ',.0f')}")
+            print(f"  Max Score: {safe_fmt(get_metric(metrics, 'Max Score', 'max_score'), ',.0f')}")
+            print(f"  Win Rate: {safe_fmt(get_metric(metrics, 'Win Rate (%)', 'win_rate'), '.2f')}%")
+            print(f"  Average Moves: {safe_fmt(get_metric(metrics, 'Avg Moves', 'avg_moves'), '.2f')}")
+            print(f"  Efficiency: {safe_fmt(get_metric(metrics, 'Efficiency (score/move)', 'efficiency'), '.3f')}")
+            print(f"  Median Max Tile: {safe_fmt(get_metric(metrics, 'Median Max Tile', 'median_max_tile'), '.0f')}")
+            if 'Absolute Max Tile' in metrics or 'absolute_max_tile' in metrics:
+                print(f"  Absolute Max Tile: {safe_fmt(get_metric(metrics, 'Absolute Max Tile', 'absolute_max_tile'), '.0f')}")
     
     else:
         print("No existing results found. Running simulations...")
@@ -165,14 +177,15 @@ if __name__ == "__main__":
         print("\nAgent Performance Results:")
         for agent_name, metrics in comparison_data.items():
             print(f"\n{agent_name}:")
-            print(f"  Average Score: {metrics['avg_score']:.2f}")
-            print(f"  Min Score: {metrics['min_score']:,.0f}")
-            print(f"  Max Score: {metrics['max_score']:,.0f}")
-            print(f"  Win Rate: {metrics['win_rate']:.2f}%")
-            print(f"  Average Moves: {metrics['avg_moves']:.2f}")
-            print(f"  Efficiency: {metrics['efficiency']:.3f}")
-            print(f"  Median Max Tile: {metrics['median_max_tile']:.0f}")
-            print(f"  Absolute Max Tile: {metrics['absolute_max_tile']:.0f}")
+            print(f"  Average Score: {safe_fmt(get_metric(metrics, 'Avg Score', 'avg_score'), '.2f')}")
+            print(f"  Min Score: {safe_fmt(get_metric(metrics, 'Min Score', 'min_score'), ',.0f')}")
+            print(f"  Max Score: {safe_fmt(get_metric(metrics, 'Max Score', 'max_score'), ',.0f')}")
+            print(f"  Win Rate: {safe_fmt(get_metric(metrics, 'Win Rate (%)', 'win_rate'), '.2f')}%")
+            print(f"  Average Moves: {safe_fmt(get_metric(metrics, 'Avg Moves', 'avg_moves'), '.2f')}")
+            print(f"  Efficiency: {safe_fmt(get_metric(metrics, 'Efficiency (score/move)', 'efficiency'), '.3f')}")
+            print(f"  Median Max Tile: {safe_fmt(get_metric(metrics, 'Median Max Tile', 'median_max_tile'), '.0f')}")
+            if 'Absolute Max Tile' in metrics or 'absolute_max_tile' in metrics:
+                print(f"  Absolute Max Tile: {safe_fmt(get_metric(metrics, 'Absolute Max Tile', 'absolute_max_tile'), '.0f')}")
         
         visualizer = AgentVisualizer(analyzer.results)
 
