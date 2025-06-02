@@ -10,40 +10,68 @@ class EmptyTilesHeuristic(Heuristic):
     def evaluate(self, board):
         return np.count_nonzero(board == 0)
 
+class PositionalEmptyTilesHeuristic(Heuristic):
+    """Empty tiles heuristic with positional weights"""
+    
+    def __init__(self, name="PositionalEmptyTiles"):
+        super().__init__(name)
+        
+    def evaluate(self, board):
+        score = 0
+        for i in range(4):
+            for j in range(4):
+                if board[i,j] == 0:
+                    # Weight empty tiles more if they're in strategic positions
+                    if (i,j) in [(0,0), (0,3), (3,0), (3,3)]:  # Corners
+                        score += 12  # High value for corner empties
+                    elif i == 0 or i == 3 or j == 0 or j == 3:  # Edges
+                        score += 8   # Medium value for edge empties  
+                    else:  # Center
+                        score += 4   # Lower value for center empties
+        return score
+
 
 class MonotonicityHeuristic(Heuristic):
     """Evaluates how monotonic (ordered) the board is."""
     
-    def __init__(self, name="Monotonicity"):
+    def __init__(self, name="AjrMonotonicity"):
         super().__init__(name)
         
     def evaluate(self, board):
-        monotonicity = 0
+        mono_score = 0
         
-        # Check rows (left to right and right to left)
+        # Check each row and column (aj-r style)
         for i in range(4):
-            # Left to right
-            row = board[i]
-            if np.all(row[:-1] <= row[1:]):  # Non-decreasing
-                monotonicity += 1
-                
-            # Right to left
-            if np.all(row[:-1] >= row[1:]):  # Non-increasing
-                monotonicity += 1
-                
-        # Check columns (top to bottom and bottom to top)
-        for j in range(4):
-            # Top to bottom
-            col = board[:, j]
-            if np.all(col[:-1] <= col[1:]):  # Non-decreasing
-                monotonicity += 1
-                
-            # Bottom to top
-            if np.all(col[:-1] >= col[1:]):  # Non-increasing
-                monotonicity += 1
-                
-        return monotonicity
-
+            # Row monotonicity
+            row = [board[i,j] for j in range(4)]
+            mono_score += self._calculate_line_monotonicity(row)
+            
+            # Column monotonicity  
+            col = [board[j,i] for j in range(4)]
+            mono_score += self._calculate_line_monotonicity(col)
+        
+        return mono_score
+    
+    def _calculate_line_monotonicity(self, line):
+        """Rewards partial ordering."""
+        inc_score = 0
+        dec_score = 0
+        prev_value = -1
+        
+        for value in line:
+            if value == 0:
+                value = 0  # Treat empty as 0
+            
+            inc_score += value
+            if value <= prev_value or prev_value == -1:
+                dec_score += value
+                if value < prev_value and prev_value != -1:
+                    # Penalty for breaking increasing order
+                    inc_score -= prev_value
+            prev_value = value
+        
+        # Return the better of increasing or decreasing direction
+        return max(inc_score, dec_score)
 
 class SmoothnessHeuristic(Heuristic):
     """Evaluates smoothness: difference between adjacent tiles."""
@@ -129,3 +157,40 @@ class MergePotentialHeuristic(Heuristic):
                     merges += board[i,j]
                     
         return merges
+
+
+class QualityStabilityHeuristic(Heuristic):
+    """Measures board stability and resistance to quality loss."""
+    
+    def __init__(self, name="QualityStability"):
+        super().__init__(name)
+        
+    def evaluate(self, board):
+        stability = 0
+        
+        max_tile = np.max(board)
+        max_pos = np.unravel_index(np.argmax(board), board.shape)
+        row, col = max_pos
+        
+        # Check if max tile is protected (fewer exposed sides = more stable)
+        protected_sides = 0
+        directions = [(0,1), (1,0), (0,-1), (-1,0)]
+        for di, dj in directions:
+            ni, nj = row + di, col + dj
+            if ni < 0 or ni >= 4 or nj < 0 or nj >= 4:
+                protected_sides += 1  # Protected by wall
+            elif board[ni,nj] != 0:
+                protected_sides += 1  # Protected by another tile
+        
+        stability += protected_sides * max_tile * 0.1
+        
+        # Reward having second-highest tiles near max tile
+        second_max = np.partition(board.flatten(), -2)[-2]
+        if second_max > 0:
+            for di, dj in directions:
+                ni, nj = row + di, col + dj
+                if 0 <= ni < 4 and 0 <= nj < 4:
+                    if board[ni,nj] == second_max:
+                        stability += second_max * 0.2
+        
+        return stability

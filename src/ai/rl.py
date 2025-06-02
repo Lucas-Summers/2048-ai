@@ -151,7 +151,7 @@ class RLAgent(Agent):
 
         # Update stats
         self.stats.update({
-            "avg_reward": chosen_q_value
+            "avg_reward": float(chosen_q_value)
         })
 
         if not self.training:

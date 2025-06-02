@@ -23,14 +23,14 @@ def create_agent(agent_type, thinking_time=0.5):
             tile_weight=1.0,
             score_weight=0.1
         ),
-        'mcts_random': lambda: MctsAgent(
-            name="MCTS_Random", 
+        'mcts': lambda: MctsAgent(
+            name="MCTS", 
             thinking_time=thinking_time,
             exploration_weight=1.414,
             rollout_type="random"
         ),
-        'mcts_expectimax': lambda: MctsAgent(
-            name="MCTS_Expectimax",
+        'hybrid': lambda: MctsAgent(
+            name="Hybrid (Expectimax)",
             thinking_time=thinking_time,
             exploration_weight=1.414,
             rollout_type="expectimax"
@@ -60,17 +60,14 @@ def print_results(stats, total_time, num_games):
     
     print(f"\nPerformance Metrics:")
     print(f"  Average Score: {stats['avg_score']:.2f}")
+    print(f"  Min Score: {stats['min_score']:,.0f}")
+    print(f"  Max Score: {stats['max_score']:,.0f}")
     print(f"  Win Rate: {stats['win_rate']:.2f}% ({int(stats['win_rate'] * len(stats['scores']) / 100)} wins)")
     print(f"  Average Moves: {stats['avg_moves']:.2f}")
     print(f"  Median Max Tile: {int(stats['median_max_tile'])}")
+    print(f"  Absolute Max Tile: {stats.get('absolute_max_tile', 0)}")
     print(f"  Efficiency: {stats['efficiency']:.3f} (score/move)")
-    
-    scores = stats['scores']
-    print(f"\nScore Statistics:")
-    print(f"  Min Score: {min(scores):,}")
-    print(f"  Max Score: {max(scores):,}")
-    print(f"  Median Score: {int(sorted(scores)[len(scores)//2]):,}")
-    
+     
     max_tiles = stats['max_tiles']
     tile_counts = {}
     for tile in max_tiles:
@@ -84,7 +81,7 @@ def print_results(stats, total_time, num_games):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test a single 2048 AI agent")
     parser.add_argument("agent_type", 
-                       choices=['random', 'greedy', 'mcts_random', 'mcts_expectimax', 'expectimax', 'rl'],
+                       choices=['random', 'greedy', 'mcts', 'hybrid', 'expectimax', 'rl'],
                        help="Type of agent to test")
     parser.add_argument("-n", "--num_games", type=int, default=100,
                        help="Number of games to simulate (default: 100)")

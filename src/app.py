@@ -21,7 +21,7 @@ THINKING_TIME = 0.5
 agents = {
     'random': RandomAgent(),
     'greedy': GreedyAgent(tile_weight=1.0, score_weight=0.1),
-    'mcts': MctsAgent(thinking_time=THINKING_TIME, rollout_type="random"),
+    'mcts': MctsAgent(thinking_time=THINKING_TIME),
     'hybrid': MctsAgent(thinking_time=THINKING_TIME, rollout_type="expectimax"),
     'expect': ExpectimaxAgent(thinking_time=THINKING_TIME),
     'rl': RLAgent(training=False),
@@ -89,8 +89,22 @@ def ai_move():
     agent = load_agent(ai_type)
     
     start_time = time.time()
-    direction = agent.get_move(game)
-    agent_execution_time = time.time() - start_time
+    try:
+        direction = agent.get_move(game)
+        agent_execution_time = time.time() - start_time
+    except Exception as e:
+        # Log the error and return an error response
+        print(f"Error in {ai_type} agent.get_move(): {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify(
+            error=f"Agent error: {str(e)}",
+            moved=False,
+            game_over=True,
+            board=game.board.grid.tolist(),
+            score=int(game.score),
+            agent_type=ai_type
+        ), 500
     
     # Standardize thinking time across all agents (especially for RL agent)
     if agent_execution_time < THINKING_TIME:

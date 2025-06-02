@@ -63,6 +63,7 @@ class AgentVisualizer:
                 "Avg Moves": stats["avg_moves"],
                 "Avg Game Duration (s)": stats["avg_game_duration"],
                 "Median Max Tile": stats["median_max_tile"],
+                "Absolute Max Tile": stats.get("absolute_max_tile", 0),
                 "Efficiency (score/move)": stats["efficiency"]
             }
             data.append(row)

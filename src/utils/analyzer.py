@@ -141,6 +141,9 @@ class ParallelAgentAnalyzer:
             'game_durations': [],
             'move_distribution': {0: 0, 1: 0, 2: 0, 3: 0},
             'win_rate': 0,
+            'absolute_max_tile': 0,
+            'min_score': 0,
+            'max_score': 0,
         }
         
         if show_progress:
@@ -187,9 +190,11 @@ class ParallelAgentAnalyzer:
                             if valid_results:
                                 avg_score = np.mean([r['score'] for r in valid_results])
                                 wins = sum(1 for r in valid_results if r['win'])
+                                max_tile_so_far = max([r['max_tile'] for r in valid_results])
                                 progress_bar.set_postfix(
                                     avg_score=f"{avg_score:.1f}",
-                                    wins=f"{wins}/{len(valid_results)}"
+                                    wins=f"{wins}/{len(valid_results)}",
+                                    max_tile=f"{max_tile_so_far}"
                                 )
                 
                 except Exception as e:
@@ -212,11 +217,19 @@ class ParallelAgentAnalyzer:
             stats['moves_per_game'].append(result['moves'])
             stats['game_durations'].append(result['duration'])
             
+            
+            if result['max_tile'] > stats['absolute_max_tile']:
+                stats['absolute_max_tile'] = result['max_tile']
+            
             for move, count in result['move_distribution'].items():
                 stats['move_distribution'][move] += count
             
             if result['win']:
                 stats['win_rate'] += 1
+        
+        if stats['scores']:
+            stats['min_score'] = int(min(stats['scores']))
+            stats['max_score'] = int(max(stats['scores']))
         
         stats['win_rate'] = float((stats['win_rate'] / len(valid_results)) * 100)
         stats['avg_score'] = float(np.mean(stats['scores']))
@@ -224,6 +237,7 @@ class ParallelAgentAnalyzer:
         stats['avg_game_duration'] = float(np.mean(stats['game_durations']))
         stats['median_max_tile'] = float(np.median(stats['max_tiles']))
         stats['efficiency'] = float(stats['avg_score'] / stats['avg_moves']) if stats['avg_moves'] > 0 else 0.0
+        stats['absolute_max_tile'] = int(stats['absolute_max_tile'])
         
         self.results[agent.name] = stats
         
@@ -231,8 +245,11 @@ class ParallelAgentAnalyzer:
             print(f"Evaluation complete for {agent.name}:")
             print(f"  Games completed: {len(valid_results)}/{num_games}")
             print(f"  Average Score: {stats['avg_score']:.2f}")
+            print(f"  Min Score: {stats['min_score']:,}")
+            print(f"  Max Score: {stats['max_score']:,}")
             print(f"  Win Rate: {stats['win_rate']:.2f}%")
             print(f"  Median Max Tile: {stats['median_max_tile']}")
+            print(f"  Absolute Max Tile: {stats['absolute_max_tile']}")
             print(f"  Efficiency: {stats['efficiency']:.3f}")
         
         return stats
@@ -260,7 +277,10 @@ class ParallelAgentAnalyzer:
                 'avg_moves': stats['avg_moves'],
                 'avg_game_duration': stats['avg_game_duration'],
                 'median_max_tile': stats['median_max_tile'],
-                'efficiency': stats['efficiency']
+                'absolute_max_tile': stats.get('absolute_max_tile', 0),
+                'efficiency': stats['efficiency'],
+                'min_score': stats['min_score'],
+                'max_score': stats['max_score'],
             }
         
         return comparison_data
