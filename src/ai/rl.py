@@ -54,12 +54,20 @@ def preprocess_grid(grid: np.ndarray) -> np.ndarray:
 
 
 def default_device(explicit: Optional[str] = None) -> torch.device:
-    """Select the best available device: CUDA (NVIDIA GPU) -> MPS (Apple GPU) -> CPU."""
+    """Select the best available device safely."""
     if explicit is not None:
-        return torch.device(explicit)
+        try:
+            device = torch.device(explicit)
+            if device.type == "mps" and not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
+                return torch.device("cpu")
+            if device.type == "cuda" and not torch.cuda.is_available():
+                return torch.device("cpu")
+            return device
+        except Exception:
+            return torch.device("cpu")
     if torch.cuda.is_available():
         return torch.device("cuda")
-    if torch.backends.mps.is_available():
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
 
@@ -164,12 +172,12 @@ class RLAgent(Agent):
         return action
 
     def remember_last(self, reward: float, next_board: np.ndarray, done: bool):
-        """Store the latest transition and trigger a learning step."""
+        """Store the latest transition and trigger a learning step. Returns the loss if learning, else None."""
         next_state = None if done else preprocess_grid(next_board)
         self.replay_buffer.push(
             self._pending_state, self._pending_action, reward, next_state, done
         )
-        self._learn()
+        return self._learn()
 
     def end_episode(self):
         if self._steps_done % self.target_update_interval == 0:
@@ -188,7 +196,7 @@ class RLAgent(Agent):
 
     def _learn(self):
         if len(self.replay_buffer) < self.batch_size:
-            return
+            return None
         self._steps_done += 1
 
         batch = Transition(*zip(*self.replay_buffer.sample(self.batch_size)))
@@ -218,7 +226,7 @@ class RLAgent(Agent):
         loss.backward()
         nn.utils.clip_grad_norm_(self.policy_net.parameters(), 1.0)
         self.optimizer.step()
-
+        return loss.item()
 
     def save_model(self, path: str):
         """Save the model to the specified path."""
@@ -228,6 +236,11 @@ class RLAgent(Agent):
             "steps_done": self._steps_done,
             "init_kwargs": self._init_kwargs,
         }, path)
+
+    def update_learning_rate(self, new_lr):
+        """Update the learning rate of the optimizer."""
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = new_lr
 
     @classmethod
     def load_model(cls, path: str, **overrides):

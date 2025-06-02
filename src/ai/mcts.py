@@ -5,6 +5,7 @@ from .base import Agent
 from .heuristics.base import CompositeHeuristic
 from .heuristics.core import PositionalEmptyTilesHeuristic, MonotonicityHeuristic, SmoothnessHeuristic, CornerMaxHeuristic, MergePotentialHeuristic, MaxValueHeuristic, QualityStabilityHeuristic
 from .expectimax import ExpectimaxAgent
+from .rl import RLAgent
 
 class MCTSNode:
     def __init__(self, game_state, parent=None, move=None):
@@ -52,12 +53,14 @@ class MCTSNode:
 
 
 class MctsAgent(Agent):
-    def __init__(self, name="MCTS", thinking_time=0.5, exploration_weight=1.414, 
-                 rollout_type="random"):
+    def __init__(self, name="MCTS", thinking_time=0.5, exploration_weight=1.414,
+                 rollout_type="expectimax", rl_model_path=None):
         super().__init__(name)
         self.thinking_time = thinking_time
         self.exploration_weight = exploration_weight
-        self.rollout_type = rollout_type  # "random" or "expectimax" or "rl"
+        self.rollout_type = rollout_type  # "random", "expectimax", or "rl"
+        self.rl_model_path = rl_model_path
+        self.rollout_agent = None
         
         # Composite heuristic for evaluation
         self.heuristic = CompositeHeuristic()
@@ -74,6 +77,11 @@ class MctsAgent(Agent):
             self.expectimax_agent = ExpectimaxAgent(thinking_time=0.1)  # Fast rollouts
         else:
             self.expectimax_agent = None
+
+        if self.rollout_type == "rl":
+            if not self.rl_model_path:
+                raise ValueError("rl_model_path must be provided for RL rollout.")
+            self.rollout_agent = RLAgent.load_model(self.rl_model_path, training=False, name="RL_Rollout")
 
         self.stats = {
             "search_iterations": 0,     # MCTS iterations
@@ -188,10 +196,11 @@ class MctsAgent(Agent):
                 sim_game.step(move)
                 steps += 1
             
-            final_score = self.heuristic.evaluate(sim_game.board.grid)
-            
+            final_score = self.heuristic.evaluate(sim_game.board.grid)        
+        elif self.rollout_type == "rl" and self.rollout_agent is not None:
+            final_score = self.rl_rollout(node.game_state)
         else:
-            raise ValueError(f"Invalid rollout_type: {self.rollout_type}. Must be 'random' or 'expectimax'")
+            raise ValueError(f"Invalid rollout_type: {self.rollout_type}. Must be 'random', 'expectimax', or 'rl' with a valid rollout_agent.")
         
         return final_score
     
@@ -223,8 +232,22 @@ class MctsAgent(Agent):
         return self.stats.copy()
     
     def get_config(self):
-        return {
+        config = {
             'thinking_time': self.thinking_time,
             'exploration_weight': self.exploration_weight,
             'rollout_type': self.rollout_type
         }
+        if self.rollout_type == "rl":
+            config['rl_model_path'] = self.rl_model_path
+        return config
+
+    def rl_rollout(self, game):
+        """Simulate a rollout using the RL agent's policy until game over."""
+        sim_game = game.copy()
+        steps = 0
+        max_steps = 50  # Prevent infinite games
+        while not sim_game.is_game_over() and steps < max_steps:
+            move = self.rollout_agent.get_move(sim_game)
+            sim_game.step(move)
+            steps += 1
+        return self.heuristic.evaluate(sim_game.board.grid)

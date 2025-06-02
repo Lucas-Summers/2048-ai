@@ -8,6 +8,7 @@ from src.ai.greedy import GreedyAgent
 import os
 import importlib
 import time
+import numpy as np
 
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'templates'))
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
@@ -18,6 +19,9 @@ games = {}
 # Standard thinking time for all agents (in seconds)
 THINKING_TIME = 0.5
 
+RL_MODEL_PATH = "src/utils/runs/2025-05-31_15-39-49/best_2842.pt"
+rl_rollout_agent = RLAgent.load_model(RL_MODEL_PATH, training=False, name="RL_Rollout")
+
 agents = {
     'random': RandomAgent(),
     'greedy': GreedyAgent(tile_weight=1.0, score_weight=0.1),
@@ -25,6 +29,7 @@ agents = {
     'hybrid': MctsAgent(thinking_time=THINKING_TIME, rollout_type="expectimax"),
     'expect': ExpectimaxAgent(thinking_time=THINKING_TIME),
     'rl': RLAgent(training=False),
+    'mcts_rl': MctsAgent(thinking_time=THINKING_TIME, rollout_type="rl", rl_model_path=RL_MODEL_PATH),
 }
 
 def load_agent(agent_type):
@@ -112,6 +117,8 @@ def ai_move():
     total_thinking_time = time.time() - start_time
     
     if direction == -1:
+        agent_stats = agent.get_stats() if hasattr(agent, 'get_stats') else {}
+        agent_stats = to_native_type(agent_stats)
         return jsonify(
             moved=False,
             game_over=True,
@@ -119,7 +126,7 @@ def ai_move():
             score=int(game.score),
             highest_tile=int(game.board.get_max_tile()),
             agent_type=ai_type,
-            agent_stats=agent.get_stats() if hasattr(agent, 'get_stats') else {},
+            agent_stats=agent_stats,
             thinking_time=total_thinking_time
         )
     
@@ -129,6 +136,7 @@ def ai_move():
     agent_stats = agent.get_stats() if hasattr(agent, 'get_stats') else {}
     agent_stats['thinking_time'] = total_thinking_time
     agent_stats['execution_time'] = agent_execution_time
+    agent_stats = to_native_type(agent_stats)
     
     result.update({
         'direction': int(direction),
@@ -218,6 +226,23 @@ def sanitize_response(move_result, game):
         result['total_score'] = safe_int(move_result['total_score'])
     
     return result
+
+def to_native_type(obj):
+    """Convert numpy types to native python dicts/lists"""
+    if isinstance(obj, dict):
+        return {k: to_native_type(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [to_native_type(v) for v in obj]
+    elif isinstance(obj, tuple):
+        return tuple(to_native_type(v) for v in obj)
+    elif isinstance(obj, (np.integer,)):
+        return int(obj)
+    elif isinstance(obj, (np.floating,)):
+        return float(obj)
+    elif isinstance(obj, (np.ndarray,)):
+        return obj.tolist()
+    else:
+        return obj
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True)

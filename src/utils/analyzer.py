@@ -236,6 +236,7 @@ class ParallelAgentAnalyzer:
         stats['avg_moves'] = float(np.mean(stats['moves_per_game']))
         stats['avg_game_duration'] = float(np.mean(stats['game_durations']))
         stats['median_max_tile'] = float(np.median(stats['max_tiles']))
+        stats['absolute_max_tile'] = int(np.max(stats['max_tiles']))
         stats['efficiency'] = float(stats['avg_score'] / stats['avg_moves']) if stats['avg_moves'] > 0 else 0.0
         stats['absolute_max_tile'] = int(stats['absolute_max_tile'])
         
@@ -277,7 +278,7 @@ class ParallelAgentAnalyzer:
                 'avg_moves': stats['avg_moves'],
                 'avg_game_duration': stats['avg_game_duration'],
                 'median_max_tile': stats['median_max_tile'],
-                'absolute_max_tile': stats.get('absolute_max_tile', 0),
+                'absolute_max_tile': stats['absolute_max_tile'],
                 'efficiency': stats['efficiency'],
                 'min_score': stats['min_score'],
                 'max_score': stats['max_score'],

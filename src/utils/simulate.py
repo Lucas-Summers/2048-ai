@@ -19,6 +19,8 @@ from ai.random import RandomAgent
 def create_test_agents(thinking_time=0.5):
     """Create agent configurations we want to test."""
     agents = []
+
+    RL_MODEL_PATH = "src/utils/runs/2025-05-31_15-39-49/best_2842.pt"
     
     random_agent = RandomAgent(name="Random")
     agents.append(random_agent)
@@ -52,11 +54,18 @@ def create_test_agents(thinking_time=0.5):
     )
     agents.append(expectimax_agent)
     
-    rl_agent = RLAgent(
-        name="RL",
-        training=False
-    )
+    rl_agent = RLAgent.load_model(RL_MODEL_PATH, training=False, name="RL")
     agents.append(rl_agent)
+
+    rl_rollout_agent = RLAgent.load_model(RL_MODEL_PATH, training=False, name="RL_Rollout")
+    mcts_rl_agent = MctsAgent(
+        name="MCTS_RLHybrid",
+        thinking_time=thinking_time,
+        exploration_weight=1.414,
+        rollout_type="rl",
+        rl_model_path=RL_MODEL_PATH
+    )
+    agents.append(mcts_rl_agent)
     
     return agents
 
