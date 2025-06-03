@@ -31,13 +31,10 @@ class AgentVisualizer:
         self.agent_colors = tile_colors
         self.move_names = {0: "Up", 1: "Right", 2: "Down", 3: "Left"}
 
-        # 2048 game theme colors (simplified)
-        self.bg_color = '#d8c8b8'         # Background (light brown)
-        #self.bg_color = '#cdc1b4'         # Background (light brown)
-        self.text_color = '#776e65'       # Text (dark brown-gray)
-        self.highlight_color = '#bbada0'  # Highlights (brown-gray)
+        self.bg_color = '#faf8ef'
+        self.text_color = '#776e65'
+        self.highlight_color = '#bbada0'
         
-        # Standard figure size for ALL plots
         self.standard_figsize = (12, 6)
     
     def load_results(self, filename):
