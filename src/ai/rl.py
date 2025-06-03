@@ -108,15 +108,12 @@ class RLAgent(Agent):
         self.criterion = nn.SmoothL1Loss()
         self.replay_buffer = ReplayBuffer(buffer_capacity)
 
+        # Stats tracking
         self.stats = {
-            "efficiency": 0.0,          # Score per move (total score / moves made)
-            "game_duration": 0,         # Total number of moves made
-            "avg_q_value": 0.0,         # Average Q-value of valid moves
-            "q_value_variance": 0.0     # Variance of Q-values among valid moves
+            "search_iterations": 0,     # Q-value predictions made
+            "max_depth_reached": 1,     # Always 1 for RL (single-step lookahead)
+            "avg_reward": 0.0           # Average Q-value of chosen action
         }
-        
-        # Tracking variables for cumulative stats
-        self.total_moves_made = 0
 
         # Save the constructor args
         self._init_kwargs = dict(
@@ -130,6 +127,14 @@ class RLAgent(Agent):
 
     def get_move(self, game):
         """Return an action (0–3) for the given *game* state."""
+        
+        # Reset stats for this move
+        self.stats.update({
+            "search_iterations": 0,
+            "max_depth_reached": 1,
+            "avg_reward": 0.0
+        })
+        
         state_vec = preprocess_grid(game.board.grid)
         valid_moves = game.get_available_moves()
 
@@ -138,36 +143,24 @@ class RLAgent(Agent):
 
         # ε‑greedy selection
         eps = self._current_epsilon()
-        avg_q_value = 0.0
-        q_value_variance = 0.0
         
         if random.random() < eps:
             action = random.choice(valid_moves)
-            # For random actions, we still want to know what the Q-values would have been
-            q_values = self._predict_q(state_vec)
-            valid_q_values = q_values[valid_moves]
-            # Filter out -inf values for average calculation
-            finite_q_values = valid_q_values[np.isfinite(valid_q_values)]
-            avg_q_value = np.mean(finite_q_values) if len(finite_q_values) > 0 else 0.0
-            q_value_variance = np.var(finite_q_values) if len(finite_q_values) > 1 else 0.0
+            chosen_q_value = 0.0  # No Q-value for random action
         else:
             q_values = self._predict_q(state_vec)
-            
-            # Calculate average Q-value before masking
-            valid_q_values = q_values[valid_moves]
-            avg_q_value = np.mean(valid_q_values)
-            q_value_variance = np.var(valid_q_values) if len(valid_q_values) > 1 else 0.0
+            self.stats["search_iterations"] = 1  # One Q-value prediction made
             
             mask = np.ones(4, dtype=bool)
             mask[valid_moves] = False
             q_values[mask] = -np.inf  # Keep -inf for proper agent logic
             action = int(np.nanargmax(q_values))
+            chosen_q_value = q_values[action] if q_values[action] != -np.inf else 0.0
 
-        self.total_moves_made += 1
-        self.stats["game_duration"] = self.total_moves_made
-        self.stats["efficiency"] = game.score / self.total_moves_made if self.total_moves_made > 0 else 0.0
-        self.stats["avg_q_value"] = float(avg_q_value)
-        self.stats["q_value_variance"] = float(q_value_variance)
+        # Update stats
+        self.stats.update({
+            "avg_reward": float(chosen_q_value)
+        })
 
         if not self.training:
             self._steps_done += 1

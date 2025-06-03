@@ -9,42 +9,32 @@ class RandomAgent(Agent):
             random.seed(seed)
         
         self.stats = {
-            "move_distribution": [0, 0, 0, 0],  # Count of [up, down, left, right] moves chosen
-            "efficiency": 0.0,                  # Score per move (total score / moves made)
-            "merge_frequency": 0.0,             # Percentage of moves that resulted in merges
-            "game_duration": 0                  # Total number of moves made (survival metric)
+            "search_iterations": 0,     # Move evaluations (always 1 for random)
+            "max_depth_reached": 0,     # No depth for random (0)
+            "avg_reward": 0.0           # No reward calculation for random
         }
         
-        # Tracking variables for cumulative stats
-        self.total_moves_made = 0
-        self.total_score = 0
-        self.total_merges = 0
-        
     def get_move(self, game):
+        """Select a random valid move from the current game state."""
+        
+        # Reset stats
+        self.stats = {
+            "search_iterations": 1,     # One "evaluation" - picking randomly
+            "max_depth_reached": 0,     # No depth for random
+            "avg_reward": 0.0           # No meaningful reward for random
+        }
+        
         valid_moves = game.board.get_available_moves()
         if not valid_moves:
             return -1
         
-        chosen_move = random.choice(valid_moves)
-        
-        self.total_moves_made += 1
-        self.stats["move_distribution"][chosen_move] += 1
-        game_copy = game.copy()
-        move_result = game_copy.step(chosen_move)
-        score_gain = move_result.get('score', 0)
-        self.total_score += score_gain
-        if score_gain > 0:
-            self.total_merges += 1
-        self.stats["efficiency"] = self.total_score / self.total_moves_made if self.total_moves_made > 0 else 0.0
-        self.stats["merge_frequency"] = self.total_merges / self.total_moves_made if self.total_moves_made > 0 else 0.0
-        self.stats["game_duration"] = self.total_moves_made
-        
-        return chosen_move
+        return random.choice(valid_moves)
     
     def get_stats(self):
         return self.stats.copy()
     
     def get_config(self):
+        """Return agent configuration."""
         return {
             'seed': self.seed
         }

@@ -19,31 +19,25 @@ class ExpectimaxAgent(Agent):
         self.heuristic.add_heuristic(MaxValueHeuristic(), 1.0)
         
         self.stats = {
-            "efficiency": 0.0,          # Score per move (total score / moves made)
-            "game_duration": 0,         # Total number of moves made
-            "max_depth_reached": 0,     # Maximum tree depth explored
-            "avg_search_iterations": 0.0 # Average search iterations per move
+            "search_iterations": 0,     # Move evaluations performed
+            "max_depth_reached": 0,     # Maximum search depth reached
+            "avg_reward": 0.0           # Average quality of evaluated positions
         }
-        
-        # Tracking variables for cumulative stats
-        self.total_moves_made = 0
-        self.total_iterations = 0
 
     def get_move(self, game):
         """Returns the best move using Expectimax with quality loss minimization."""
         
-        # Reset move-specific stats
-        self.stats["max_depth_reached"] = 0
+        # Reset stats each move
+        self.stats = {
+            "search_iterations": 0,
+            "max_depth_reached": 0,
+            "avg_reward": 0.0
+        }
         
         available_moves = game.get_available_moves()
         if not available_moves:
             return -1
         if len(available_moves) == 1:
-            # Still count this as a move
-            self.total_moves_made += 1
-            self.stats["game_duration"] = self.total_moves_made
-            self.stats["efficiency"] = game.score / self.total_moves_made if self.total_moves_made > 0 else 0.0
-            self.stats["avg_search_iterations"] = self.total_iterations / self.total_moves_made if self.total_moves_made > 0 else 0.0
             return available_moves[0]
         
         original_quality = self.heuristic.evaluate(game.board.grid)
@@ -71,8 +65,9 @@ class ExpectimaxAgent(Agent):
                 
                 total_evaluations += 1
                 total_reward += result['expected_quality']
+                self.stats["search_iterations"] += 1
                 
-                # minimize the quality loss first, then maximize the expected quality
+                # minimize the quality loss first
                 if (result['quality_loss'] < best_quality_loss or 
                     (result['quality_loss'] == best_quality_loss and 
                      result['expected_quality'] > best_expected_quality)):
@@ -86,15 +81,10 @@ class ExpectimaxAgent(Agent):
                 
             depth += 1
         
-        chosen_move = best_move if best_move is not None else available_moves[0]
+        if total_evaluations > 0:
+            self.stats["avg_reward"] = total_reward / total_evaluations
         
-        self.total_iterations += total_evaluations
-        self.total_moves_made += 1
-        self.stats["game_duration"] = self.total_moves_made
-        self.stats["efficiency"] = game.score / self.total_moves_made if self.total_moves_made > 0 else 0.0
-        self.stats["avg_search_iterations"] = self.total_iterations / self.total_moves_made if self.total_moves_made > 0 else 0.0
-        
-        return chosen_move
+        return best_move if best_move is not None else available_moves[0]
 
     def _get_strategic_empty_cells(self, board):
         """Only test tile spawns adjacent to existing tiles."""

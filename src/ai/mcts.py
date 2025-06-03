@@ -72,6 +72,7 @@ class MctsAgent(Agent):
         self.heuristic.add_heuristic(SmoothnessHeuristic(), 1.5)
         self.heuristic.add_heuristic(MaxValueHeuristic(), 1.0)
 
+        # Create expectimax agent for rollouts if needed
         if self.rollout_type == "expectimax":
             self.expectimax_agent = ExpectimaxAgent(thinking_time=0.1)  # Fast rollouts
         else:
@@ -83,31 +84,25 @@ class MctsAgent(Agent):
             self.rollout_agent = RLAgent.load_model(self.rl_model_path, training=False, name="RL_Rollout")
 
         self.stats = {
-            "efficiency": 0.0,          # Score per move (total score / moves made)
-            "game_duration": 0,         # Total number of moves made
+            "search_iterations": 0,     # MCTS iterations
             "max_depth_reached": 0,     # Maximum tree depth explored
-            "avg_search_iterations": 0.0 # Average MCTS iterations per move
+            "avg_reward": 0.0           # Average reward from simulations
         }
-        
-        # Tracking variables for cumulative stats
-        self.total_moves_made = 0
-        self.total_iterations = 0
     
     def get_move(self, game):
         """Returns the best move using MCTS."""
         
-        # Reset move-specific stats
-        self.stats["max_depth_reached"] = 0
+        # Reset stats each move
+        self.stats = {
+            "search_iterations": 0,
+            "max_depth_reached": 0,
+            "avg_reward": 0.0
+        }
         
         available_moves = game.get_available_moves()
         if not available_moves:
             return -1
         if len(available_moves) == 1:
-            # Still count this as a move
-            self.total_moves_made += 1
-            self.stats["game_duration"] = self.total_moves_made
-            self.stats["efficiency"] = game.score / self.total_moves_made if self.total_moves_made > 0 else 0.0
-            self.stats["avg_search_iterations"] = self.total_iterations / self.total_moves_made if self.total_moves_made > 0 else 0.0
             return available_moves[0]
         
         root = MCTSNode(game.copy())
@@ -128,15 +123,11 @@ class MctsAgent(Agent):
             iterations += 1
             total_reward += reward
         
-        chosen_move = self._best_move(root)
+        self.stats["search_iterations"] = iterations
+        if iterations > 0:
+            self.stats["avg_reward"] = total_reward / iterations
         
-        self.total_iterations += iterations
-        self.total_moves_made += 1
-        self.stats["game_duration"] = self.total_moves_made
-        self.stats["efficiency"] = game.score / self.total_moves_made if self.total_moves_made > 0 else 0.0
-        self.stats["avg_search_iterations"] = self.total_iterations / self.total_moves_made if self.total_moves_made > 0 else 0.0
-        
-        return chosen_move
+        return self._best_move(root)
     
     def _select(self, node):
         """Selection phase: traverse down using standard UCB1."""
@@ -157,17 +148,19 @@ class MctsAgent(Agent):
         if not unexplored_moves:
             return node
         
+        # Pick move with least predicted quality loss
         original_quality = self.heuristic.evaluate(node.game_state.board.grid)
         best_move = unexplored_moves[0]
         min_predicted_loss = float('inf')
+        
         for move in unexplored_moves:
             test_game = node.game_state.copy()
             test_game.step(move)
             
+            # Quick quality assessment
             new_quality = self.heuristic.evaluate(test_game.board.grid)
             predicted_loss = max(0, original_quality - new_quality)
             
-            # Pick move with least predicted quality loss
             if predicted_loss < min_predicted_loss:
                 min_predicted_loss = predicted_loss
                 best_move = move
@@ -182,17 +175,18 @@ class MctsAgent(Agent):
     
     def _simulate(self, node):
         """Simulation phase: simulate the game using the rollout type."""
-        sim_game = node.game_state.copy()
         if self.rollout_type == "expectimax":
             final_score = self.expectimax_agent._expectimax(
-                sim_game,
+                node.game_state,
                 3,  # Shallow depth for performance
                 True,  # is_max_player
                 time.time()  # start_time
             )
         elif self.rollout_type == "random":
+            sim_game = node.game_state.copy()
             steps = 0
-            max_steps = 50  # Prevent infinite games
+            max_steps = 50
+            
             while not sim_game.is_game_over() and steps < max_steps:
                 moves = sim_game.get_available_moves()
                 if not moves:
@@ -201,15 +195,10 @@ class MctsAgent(Agent):
                 move = random.choice(moves)
                 sim_game.step(move)
                 steps += 1
+            
             final_score = self.heuristic.evaluate(sim_game.board.grid)        
         elif self.rollout_type == "rl" and self.rollout_agent is not None:
-            steps = 0
-            max_steps = 50  # Prevent infinite games
-            while not sim_game.is_game_over() and steps < max_steps:
-                move = self.rollout_agent.get_move(sim_game)
-                sim_game.step(move)
-                steps += 1
-            final_score = self.heuristic.evaluate(sim_game.board.grid)
+            final_score = self.rl_rollout(node.game_state)
         else:
             raise ValueError(f"Invalid rollout_type: {self.rollout_type}. Must be 'random', 'expectimax', or 'rl' with a valid rollout_agent.")
         
@@ -251,3 +240,14 @@ class MctsAgent(Agent):
         if self.rollout_type == "rl":
             config['rl_model_path'] = self.rl_model_path
         return config
+
+    def rl_rollout(self, game):
+        """Simulate a rollout using the RL agent's policy until game over."""
+        sim_game = game.copy()
+        steps = 0
+        max_steps = 50  # Prevent infinite games
+        while not sim_game.is_game_over() and steps < max_steps:
+            move = self.rollout_agent.get_move(sim_game)
+            sim_game.step(move)
+            steps += 1
+        return self.heuristic.evaluate(sim_game.board.grid)

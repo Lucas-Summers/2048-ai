@@ -118,6 +118,7 @@ if __name__ == "__main__":
     print(f"Thinking time: {args.thinking_time}s")
     print(f"Parallel settings: {num_processes} processes, {args.batch_size} batch size, {args.threads_per_batch} threads/batch")
     
+    # Create agent and analyzer
     agent = create_agent(args.agent_type, thinking_time=args.thinking_time)
     
     analyzer = ParallelAgentAnalyzer(

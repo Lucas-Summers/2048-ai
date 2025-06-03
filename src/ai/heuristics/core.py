@@ -21,6 +21,7 @@ class PositionalEmptyTilesHeuristic(Heuristic):
         for i in range(4):
             for j in range(4):
                 if board[i,j] == 0:
+                    # Weight empty tiles more if they're in strategic positions
                     if (i,j) in [(0,0), (0,3), (3,0), (3,3)]:  # Corners
                         score += 12  # High value for corner empties
                     elif i == 0 or i == 3 or j == 0 or j == 3:  # Edges

@@ -585,8 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             body: JSON.stringify({
                 game_id: gameId,
-                ai_type: aiAgent,
-                speed: aiSpeed
+                ai_type: aiAgent
             }),
             signal: currentAbortController.signal
         })

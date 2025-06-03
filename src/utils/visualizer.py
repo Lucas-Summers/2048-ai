@@ -18,15 +18,17 @@ class AgentVisualizer:
         """Configure plot styling for consistency and improved aesthetics."""
         sns.set_style("whitegrid")
         
+        # 2048 game tile colors for agent differentiation
         tile_colors = [
-            '#f65e3b',  # RED (tile-64)
-            '#edc22e',  # YELLOW (tile-2048)
-            '#f59563',  # ORANGE (tile-16)
-            '#7fb069',  # GREEN
-            '#5b9bd5',  # BLUE
-            '#8e6a8b',  # PURPLE
-            '#776e65',  # BLACK (text)
-            '#ede0c8',  # WHITE (tile-4)
+            '#f2b179',  # tile-8
+            '#f59563',  # tile-16
+            '#f67c5f',  # tile-32
+            '#f65e3b',  # tile-64
+            '#edcf72',  # tile-128
+            '#edcc61',  # tile-256
+            '#edc850',  # tile-512
+            '#edc53f',  # tile-1024
+            '#edc22e',  # tile-2048
         ]
         self.agent_colors = tile_colors
         self.move_names = {0: "Up", 1: "Right", 2: "Down", 3: "Left"}
@@ -83,10 +85,9 @@ class AgentVisualizer:
             sns.kdeplot(stats["scores"], label=f"{agent_name} (avg: {stats['avg_score']:.0f})", 
                        color=color, linewidth=2, ax=ax)
         
-        ax.set_title("Score Distributions (Log Scale)", fontsize=14, fontweight="bold")
-        ax.set_xlabel("Score (Log Scale)", fontsize=12)
+        ax.set_title("Score Distributions", fontsize=14, fontweight="bold")
+        ax.set_xlabel("Score", fontsize=12)
         ax.set_ylabel("Density", fontsize=12)
-        ax.set_xscale('log')  # Use logarithmic scale for scores
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         
         self.apply_game_theme(fig, ax)
@@ -107,10 +108,12 @@ class AgentVisualizer:
         if figsize is None:
             figsize = self.standard_figsize
         
+        # Get all max tiles across all agents and find the highest overall
         all_max_tiles = []
         for stats in self.results.values():
             all_max_tiles.extend(stats["max_tiles"])
         
+        # Get the highest N unique tiles across all agents
         unique_tiles = sorted(set(all_max_tiles), reverse=True)
         highest_tiles = unique_tiles[:max_tiles_to_show]
         selected_tiles = sorted(highest_tiles)
@@ -127,11 +130,12 @@ class AgentVisualizer:
         df = pd.DataFrame(tile_percentages, index=selected_tiles)
         fig, ax = plt.subplots(figsize=figsize)
         
+        # Create color map for agents
         agent_names = list(self.results.keys())
         colors_map = {}
         for i, agent_name in enumerate(agent_names):
             colors_map[agent_name] = self.agent_colors[i % len(self.agent_colors)]
-        df.plot(kind='bar', width=0.8, ax=ax, alpha=0.9, color=colors_map, edgecolor='none')
+        df.plot(kind='bar', width=0.8, ax=ax, alpha=0.8, color=colors_map, edgecolor='none')
         
         ax.set_title(f'Max Tile Distributions (Highest {len(selected_tiles)} Tiles)', fontsize=14, fontweight="bold")
         ax.set_xlabel('Max Tile Value', fontsize=12)
@@ -187,7 +191,7 @@ class AgentVisualizer:
         for i, agent_name in enumerate(agent_names):
             colors_map[agent_name] = self.agent_colors[i % len(self.agent_colors)]
         
-        df.plot(kind='bar', width=0.8, ax=ax, alpha=0.9, color=colors_map, edgecolor='none')
+        df.plot(kind='bar', width=0.8, ax=ax, alpha=0.8, color=colors_map, edgecolor='none')
         ax.set_title('Move Distributions', fontsize=14, fontweight="bold")
         ax.set_xlabel('Move Direction', fontsize=12)
         ax.set_ylabel('Percentage of Moves (%)', fontsize=12)
@@ -220,10 +224,9 @@ class AgentVisualizer:
                        label=f"{agent_name} (avg: {stats['avg_moves']:.0f})", 
                        color=color, linewidth=2, ax=ax)
         
-        ax.set_title("Game Length Distributions (Log Scale)", fontsize=14, fontweight="bold")
-        ax.set_xlabel("Game Length (moves, Log Scale)", fontsize=12)
+        ax.set_title("Game Length Distributions", fontsize=14, fontweight="bold")
+        ax.set_xlabel("Game Length (moves)", fontsize=12)
         ax.set_ylabel("Density", fontsize=12)
-        ax.set_xscale('log')  # Use logarithmic scale for game lengths
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         
         self.apply_game_theme(fig, ax)
@@ -253,7 +256,7 @@ class AgentVisualizer:
             colors.append(self.agent_colors[i % len(self.agent_colors)])
         
         fig, ax = plt.subplots(figsize=figsize)
-        bars = ax.bar(agents, win_rates, color=colors, alpha=0.9, edgecolor='none')
+        bars = ax.bar(agents, win_rates, color=colors, alpha=0.8, edgecolor='none')
         
         ax.set_title("Win Rate (% games with 2048+ tile)", fontsize=14, fontweight="bold")
         ax.set_ylabel("Win Rate (%)", fontsize=12)
@@ -295,7 +298,7 @@ class AgentVisualizer:
             colors.append(self.agent_colors[i % len(self.agent_colors)])
         
         fig, ax = plt.subplots(figsize=figsize)
-        bars = ax.bar(agents, efficiencies, color=colors, alpha=0.9, edgecolor='none')
+        bars = ax.bar(agents, efficiencies, color=colors, alpha=0.8, edgecolor='none')
         ax.set_title("Efficiency (Score per Move)", fontsize=14, fontweight="bold")
         ax.set_ylabel("Efficiency (score/move)", fontsize=12)
         ax.set_xlabel("Agent", fontsize=12)
@@ -313,6 +316,39 @@ class AgentVisualizer:
         plt.tight_layout()
         
         filename = f"{output_dir}/efficiency.png"
+        fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
+        print(f"Saved: {filename}")
+        
+        return fig
+    
+    def plot_score_vs_game_length(self, output_dir=".", figsize=None):
+        """Plot score vs game length scatter plot for all agents."""
+        if not self.results:
+            print("No results to visualize")
+            return None
+        
+        if figsize is None:
+            figsize = self.standard_figsize
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        for i, (agent_name, stats) in enumerate(self.results.items()):
+            color = self.agent_colors[i % len(self.agent_colors)]
+            scores = stats["scores"]
+            game_lengths = stats["moves_per_game"]
+            efficiency = stats.get("efficiency", 0.0)
+            
+            ax.scatter(game_lengths, scores, color=color, alpha=0.7, s=30, 
+                      label=f"{agent_name} (eff: {efficiency:.2f})", edgecolors='none')
+        
+        ax.set_title('Score vs Game Length', fontsize=14, fontweight="bold")
+        ax.set_xlabel('Game Length (moves)', fontsize=12)
+        ax.set_ylabel('Final Score', fontsize=12)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        self.apply_game_theme(fig, ax)
+        plt.tight_layout()
+        
+        filename = f"{output_dir}/score_vs_game_length.png"
         fig.savefig(filename, dpi=300, bbox_inches='tight', facecolor=self.bg_color)
         print(f"Saved: {filename}")
         
