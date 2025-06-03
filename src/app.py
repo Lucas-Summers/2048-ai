@@ -16,8 +16,13 @@ app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 
 games = {}
 
-# Standard thinking time for all agents (in seconds)
-THINKING_TIME = 0.5
+SPEED_THINKING_TIMES = {
+    'full': 0.2,
+    'fast': 0.5,
+    'medium': 1.0,
+    'slow': 2.0
+}
+DEFAULT_THINKING_TIME = SPEED_THINKING_TIMES['fast']
 
 RL_MODEL_PATH = "src/utils/runs/2025-05-31_15-39-49/best_2842.pt"
 rl_rollout_agent = RLAgent.load_model(RL_MODEL_PATH, training=False, name="RL_Rollout")
@@ -25,14 +30,26 @@ rl_rollout_agent = RLAgent.load_model(RL_MODEL_PATH, training=False, name="RL_Ro
 agents = {
     'random': RandomAgent(),
     'greedy': GreedyAgent(tile_weight=1.0, score_weight=0.1),
-    'mcts': MctsAgent(thinking_time=THINKING_TIME),
-    'hybrid': MctsAgent(thinking_time=THINKING_TIME, rollout_type="expectimax"),
-    'expect': ExpectimaxAgent(thinking_time=THINKING_TIME),
+    'mcts': MctsAgent(thinking_time=DEFAULT_THINKING_TIME),
+    'mcts_exp': MctsAgent(thinking_time=DEFAULT_THINKING_TIME, rollout_type="expectimax"),
+    'expect': ExpectimaxAgent(thinking_time=DEFAULT_THINKING_TIME),
     'rl': RLAgent(training=False),
-    'mcts_rl': MctsAgent(thinking_time=THINKING_TIME, rollout_type="rl", rl_model_path=RL_MODEL_PATH),
+    'mcts_rl': MctsAgent(thinking_time=DEFAULT_THINKING_TIME, rollout_type="rl", rl_model_path=RL_MODEL_PATH),
 }
 
-def load_agent(agent_type):
+def load_agent(agent_type, thinking_time=None):
+    if thinking_time is None:
+        thinking_time = DEFAULT_THINKING_TIME
+        
+    if agent_type == 'mcts':
+        return MctsAgent(thinking_time=thinking_time)
+    elif agent_type == 'mcts_exp':
+        return MctsAgent(thinking_time=thinking_time, rollout_type="expectimax")
+    elif agent_type == 'expect':
+        return ExpectimaxAgent(thinking_time=thinking_time)
+    elif agent_type == 'mcts_rl':
+        return MctsAgent(thinking_time=thinking_time, rollout_type="rl", rl_model_path=RL_MODEL_PATH)
+    
     if agent_type in agents:
         return agents[agent_type]
         
@@ -47,7 +64,7 @@ def load_agent(agent_type):
         return agent
     except (ImportError, AttributeError) as e:
         print(f"Agent '{agent_type}' could not be loaded: {e}")
-        return agents['greedy']
+        return agents['random']
 
 @app.route('/')
 def index():
@@ -85,20 +102,22 @@ def make_move():
 @app.route('/api/ai_move', methods=['POST'])
 def ai_move():
     game_id = request.json.get('game_id', 'default')
-    ai_type = request.json.get('ai_type', 'greedy')  # Default to greedy
+    ai_type = request.json.get('ai_type', 'random')  # Default to random
+    speed = request.json.get('speed', 'fast')  # Default to fast speed
     
     game = games.get(game_id)
     if not game:
         return jsonify(error="Game not found"), 404
     
-    agent = load_agent(ai_type)
+    thinking_time = SPEED_THINKING_TIMES.get(speed, DEFAULT_THINKING_TIME)
+    
+    # Load agent with appropriate thinking time
+    agent = load_agent(ai_type, thinking_time)
     
     start_time = time.time()
     try:
         direction = agent.get_move(game)
-        agent_execution_time = time.time() - start_time
     except Exception as e:
-        # Log the error and return an error response
         print(f"Error in {ai_type} agent.get_move(): {e}")
         import traceback
         traceback.print_exc()
@@ -111,9 +130,10 @@ def ai_move():
             agent_type=ai_type
         ), 500
     
-    # Standardize thinking time across all agents (especially for RL agent)
-    if agent_execution_time < THINKING_TIME:
-        time.sleep(THINKING_TIME - agent_execution_time)
+    # Standardize thinking time across all agents
+    elapsed_time = time.time() - start_time
+    if elapsed_time < thinking_time:
+        time.sleep(thinking_time - elapsed_time)
     total_thinking_time = time.time() - start_time
     
     if direction == -1:
@@ -127,7 +147,8 @@ def ai_move():
             highest_tile=int(game.board.get_max_tile()),
             agent_type=ai_type,
             agent_stats=agent_stats,
-            thinking_time=total_thinking_time
+            thinking_time=total_thinking_time,
+            speed=speed
         )
     
     move_result = game.step(direction)
@@ -135,13 +156,13 @@ def ai_move():
     
     agent_stats = agent.get_stats() if hasattr(agent, 'get_stats') else {}
     agent_stats['thinking_time'] = total_thinking_time
-    agent_stats['execution_time'] = agent_execution_time
     agent_stats = to_native_type(agent_stats)
     
     result.update({
         'direction': int(direction),
         'agent_type': ai_type,
-        'agent_stats': agent_stats
+        'agent_stats': agent_stats,
+        'speed': speed
     })
     
     return jsonify(result)
