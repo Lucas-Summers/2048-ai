@@ -1,0 +1,36 @@
+{
+  "Expectimax": {
+    "agent_name": "Expectimax",
+    "agent_config": {
+      "thinking_time": 0.01,
+      "name": "Expectimax"
+    },
+    "scores": [
+      14104
+    ],
+    "max_tiles": [
+      1024
+    ],
+    "moves_per_game": [
+      863
+    ],
+    "game_durations": [
+      12.474550485610962
+    ],
+    "move_distribution": {
+      "0": 389,
+      "1": 345,
+      "2": 116,
+      "3": 13
+    },
+    "win_rate": 0.0,
+    "absolute_max_tile": 1024,
+    "min_score": 14104,
+    "max_score": 14104,
+    "avg_score": 14104.0,
+    "avg_moves": 863.0,
+    "avg_game_duration": 12.474550485610962,
+    "median_max_tile": 1024.0,
+    "efficiency": 16.342989571263036
+  }
+}
