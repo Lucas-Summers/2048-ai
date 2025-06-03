@@ -112,11 +112,12 @@ def play_game_batch_parallel(args):
 
 
 class ParallelAgentAnalyzer:
-    def __init__(self, num_processes=None, batch_size=10, games_per_thread=2):
+    def __init__(self, num_processes=None, batch_size=10, games_per_thread=2, results_file=None):
         self.results = {}
         self.num_processes = num_processes or max(1, cpu_count() - 1)  # Leave one core free
         self.batch_size = batch_size
         self.games_per_thread = games_per_thread
+        self.results_file = results_file
         
     def _get_agent_class_info(self, agent):
         """Get information needed to reconstruct the agent in a subprocess."""
@@ -264,6 +265,8 @@ class ParallelAgentAnalyzer:
         
         for agent in agents_to_evaluate:
             self.evaluate_agent(agent, num_games, show_progress)
+            if self.results_file:
+                self.save_results(self.results_file)  # Save after each agent to avoid losing progress
         
         return self.get_comparison_data()
     

@@ -20,7 +20,7 @@ def create_test_agents(thinking_time=0.5):
     """Create agent configurations we want to test."""
     agents = []
 
-    RL_MODEL_PATH = "src/utils/runs/2025-05-31_15-39-49/best_2842.pt"
+    RL_MODEL_PATH = "runs/2025-05-31_15-39-49/best_2842.pt"
     
     random_agent = RandomAgent(name="Random")
     agents.append(random_agent)
@@ -154,7 +154,8 @@ if __name__ == "__main__":
         analyzer = ParallelAgentAnalyzer(
             num_processes=num_processes, 
             batch_size=batch_size,
-            games_per_thread=games_per_thread
+            games_per_thread=games_per_thread,
+            results_file=results_file
         )
         
         print("\nStarting simulations...")
