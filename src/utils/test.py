@@ -16,7 +16,7 @@ from ai.random import RandomAgent
 
 def create_agent(agent_type, thinking_time=0.5):
     """Create a single agent of the specified type."""
-    RL_MODEL_PATH = "src/utils/runs/2025-05-31_15-39-49/best_2842.pt"
+    RL_MODEL_PATH = "runs/2025-05-31_15-39-49/best_2842.pt"
 
     agent_configs = {
         'random': lambda: RandomAgent(name="Random"),
@@ -58,30 +58,32 @@ def create_agent(agent_type, thinking_time=0.5):
 
 def print_results(stats, total_time, num_games):
     """Print comprehensive results for the agent."""
-    print(f"\nRESULTS FOR {stats['agent_name']}")
+    print(f"\nRESULTS FOR {stats.get('agent_name', 'Unknown')}")
     print("="*50)
-    print(f"Games Completed: {len(stats['scores'])}/{num_games}")
+    print(f"Games Completed: {len(stats.get('scores', []))}/{num_games}")
     print(f"Total Time: {total_time:.2f} seconds")
-    print(f"Time per Game: {total_time / len(stats['scores']):.3f} seconds")
+    num_scores = len(stats.get('scores', [])) or 1
+    print(f"Time per Game: {total_time / num_scores:.3f} seconds")
     
     print(f"\nPerformance Metrics:")
-    print(f"  Average Score: {stats['avg_score']:.2f}")
-    print(f"  Min Score: {stats['min_score']:,.0f}")
-    print(f"  Max Score: {stats['max_score']:,.0f}")
-    print(f"  Win Rate: {stats['win_rate']:.2f}% ({int(stats['win_rate'] * len(stats['scores']) / 100)} wins)")
-    print(f"  Average Moves: {stats['avg_moves']:.2f}")
-    print(f"  Median Max Tile: {int(stats['median_max_tile'])}")
+    print(f"  Average Score: {stats.get('avg_score', 0):.2f}")
+    print(f"  Min Score: {stats.get('min_score', 0):,.0f}")
+    print(f"  Max Score: {stats.get('max_score', 0):,.0f}")
+    win_rate = stats.get('win_rate', 0)
+    print(f"  Win Rate: {win_rate:.2f}% ({int(win_rate * len(stats.get('scores', [])) / 100)} wins)")
+    print(f"  Average Moves: {stats.get('avg_moves', 0):.2f}")
+    print(f"  Median Max Tile: {int(stats.get('median_max_tile', 0))}")
     print(f"  Absolute Max Tile: {stats.get('absolute_max_tile', 0)}")
-    print(f"  Efficiency: {stats['efficiency']:.3f} (score/move)")
+    print(f"  Efficiency: {stats.get('efficiency', 0):.3f} (score/move)")
      
-    max_tiles = stats['max_tiles']
+    max_tiles = stats.get('max_tiles', [])
     tile_counts = {}
     for tile in max_tiles:
         tile_counts[tile] = tile_counts.get(tile, 0) + 1
     
     print(f"\nMax Tile Distribution:")
     for tile in sorted(tile_counts.keys(), reverse=True)[:6]:
-        percentage = tile_counts[tile] / len(max_tiles) * 100
+        percentage = tile_counts[tile] / len(max_tiles) * 100 if max_tiles else 0
         print(f"  {tile:>4}: {tile_counts[tile]:>3} games ({percentage:>5.1f}%)")
 
 if __name__ == "__main__":
