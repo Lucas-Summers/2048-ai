@@ -87,8 +87,8 @@ if __name__ == "__main__":
                        help="Number of games to simulate per agent (default: 100)")
     parser.add_argument("-t", "--thinking_time", type=float, default=0.5,
                        help="Thinking time per move in seconds (default: 0.5)")
-    parser.add_argument("-o", "--output_dir", default="../../results",
-                       help="Output directory for results (default: ../../results)")
+    parser.add_argument("-r", "--results_file", default="../../results/agent_results.json",
+                       help="Results file path (default: ../../results/agent_results.json)")
     parser.add_argument("--processes", type=int, default=None,
                        help="Number of processes (default: auto-detect)")
     parser.add_argument("--batch_size", type=int, default=10,
@@ -102,13 +102,13 @@ if __name__ == "__main__":
     
     thinking_time = args.thinking_time
     num_games = args.num_games
-    output_dir = args.output_dir
+    results_file = args.results_file
+    output_dir = os.path.dirname(os.path.abspath(results_file))
     num_processes = args.processes
     batch_size = args.batch_size
     games_per_thread = args.threads_per_batch
     
     os.makedirs(output_dir, exist_ok=True)
-    results_file = f"{output_dir}/agent_results.json"
     
     if os.path.exists(results_file) and args.skip_existing:
         print(f"Results file already exists: {results_file}")
@@ -139,6 +139,7 @@ if __name__ == "__main__":
         print(f"Configuration:")
         print(f"  Games per agent: {num_games}")
         print(f"  Thinking time: {thinking_time}s")
+        print(f"  Results file: {results_file}")
         print(f"  Output directory: {output_dir}")
         
         if num_processes is None:
@@ -203,9 +204,12 @@ if __name__ == "__main__":
     fig_moves = visualizer.plot_move_distributions(output_dir=output_dir)
     if fig_moves:
         plt.close(fig_moves)
-    fig_scatter = visualizer.plot_score_vs_game_length(output_dir=output_dir)
-    if fig_scatter:
-        plt.close(fig_scatter)
+    fig_game_length = visualizer.plot_game_length_distributions(output_dir=output_dir)
+    if fig_game_length:
+        plt.close(fig_game_length)
+    fig_efficiency = visualizer.plot_efficiency(output_dir=output_dir)
+    if fig_efficiency:
+        plt.close(fig_efficiency)
 
     print("\nAnalysis complete!")
     print(f"All files saved in directory: {output_dir}/")

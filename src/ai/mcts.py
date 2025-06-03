@@ -72,7 +72,6 @@ class MctsAgent(Agent):
         self.heuristic.add_heuristic(SmoothnessHeuristic(), 1.5)
         self.heuristic.add_heuristic(MaxValueHeuristic(), 1.0)
 
-        # Create expectimax agent for rollouts if needed
         if self.rollout_type == "expectimax":
             self.expectimax_agent = ExpectimaxAgent(thinking_time=0.1)  # Fast rollouts
         else:
