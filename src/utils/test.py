@@ -16,7 +16,7 @@ from ai.random import RandomAgent
 
 def create_agent(agent_type, thinking_time=0.5):
     """Create a single agent of the specified type."""
-    RL_MODEL_PATH = "src/utils/runs/2025-05-31_15-39-49/best_2842.pt"
+    RL_MODEL_PATH = "runs/2025-05-31_15-39-49/best_2842.pt"
 
     agent_configs = {
         'random': lambda: RandomAgent(name="Random"),
