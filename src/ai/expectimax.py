@@ -181,7 +181,6 @@ class ExpectimaxAgent(Agent):
                 best_value = max(best_value, value)
             return best_value
         else:
-            # Use strategic empty cells instead of all empty cells
             empty_cells = self._get_strategic_empty_cells(game.board.grid)
             if not empty_cells:
                 return self.heuristic.evaluate(game.board.grid)
