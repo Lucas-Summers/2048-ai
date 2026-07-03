@@ -2,6 +2,8 @@
 
 A comprehensive implementation of various AI algorithms to play the 2048 game, featuring multiple agents, a web interface, and advanced performance analysis tools with parallel processing capabilities.
 
+![2048 AI Banner](./static/assets/banner.png)
+
 ## Overview
 
 This project implements and compares different AI approaches for playing the 2048 game:
